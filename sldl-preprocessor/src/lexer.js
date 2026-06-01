@@ -1,4 +1,4 @@
-const { FileSlice } = require("./file/slice.js");
+const { FileSlice } = require("sldl-utils");
 
 class PreprocessTokenContent {
   static Type = {

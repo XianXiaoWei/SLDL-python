@@ -1,5 +1,5 @@
 {
-  "name": "that-sky-preprocessor",
+  "name": "sldl-utils",
   "version": "1.0.0",
   "main": "main.js",
   "files": [
@@ -15,5 +15,5 @@
   },
   "author": "That Sky Project",
   "license": "LGPL-3.0-or-later",
-  "description": "Preprocessor for SLDL v1.0.0"
+  "description": "Utils for SLDL v1.0.0"
 }

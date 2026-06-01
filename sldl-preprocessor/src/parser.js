@@ -10,8 +10,8 @@ const {
   SimplePreprocessErrorBuilder,
   BuiltinPreprocessError
 } = require("./errors.js");
-const { FileInterface } = require("./file/file.js");
-const { FileSlice } = require("./file/slice.js");
+const { FileInterface } = require("sldl-utils");
+const { FileSlice } = require("sldl-utils");
 
 /**
  * Discard comments and replace them with an equal number of blank lines.

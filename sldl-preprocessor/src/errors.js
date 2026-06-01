@@ -1,4 +1,4 @@
-const { PreprocessToken, PreprocessLexer } = require("./lexer");
+const { PreprocessToken, PreprocessLexer } = require("./lexer.js");
 
 class PreprocessContext {
   /**

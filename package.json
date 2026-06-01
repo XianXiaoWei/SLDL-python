@@ -2,6 +2,7 @@
   "name": "that-sky-compiler-packages",
   "private": true,
   "workspaces": [
+    "sldl-utils",
     "sldl-frontend",
     "sldl-preprocessor",
     "sldl-linker",

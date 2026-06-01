@@ -7,8 +7,8 @@
  * LGPL License
  */
 
-const { FileSlice } = require("./src/file/slice.js");
-const { FileInterface } = require("./src/file/file.js");
+const { FileSlice } = require("sldl-utils");
+const { FileInterface } = require("sldl-utils");
 const {
   PreprocessLexer,
   PreprocessToken,
