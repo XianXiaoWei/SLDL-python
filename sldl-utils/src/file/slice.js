@@ -1,4 +1,6 @@
 class FileSlice {
+  static Null = new FileSlice();
+
   /**
    * Create a copy of `a` or copy `a` to `b`.
    * @param {FileSlice} a 
