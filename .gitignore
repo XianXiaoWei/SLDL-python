@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.vscode/
+.vs/
+.VSCodeCounter/
 package-lock.json
 *.tgz
 *.zip

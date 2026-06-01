@@ -9,6 +9,7 @@
  */
 
 const { CompilerLexer } = require("./src/lexer/lexer.js");
+const { CompilerParser, compile } = require("./src/parser/parser.js");
 
 /**
  * Tokenize a preprocessed FileSlice into a stream of Token objects.
@@ -31,7 +32,21 @@ function tokenize(fileSlice) {
   }
 }
 
+/**
+ * Parse a token array into an AST.
+ *
+ * @param {Token[]} tokens - Token stream from tokenize().
+ * @returns {object} Program AST.
+ */
+function parse(tokens) {
+  var parser = new CompilerParser(tokens);
+  return parser.parse();
+}
+
 module.exports = {
   tokenize: tokenize,
-  CompilerLexer: CompilerLexer
+  parse: parse,
+  compile: compile,
+  CompilerLexer: CompilerLexer,
+  CompilerParser: CompilerParser
 };

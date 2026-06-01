@@ -3,8 +3,6 @@ const {
   TokenContent,
   NumericLiteral,
   StringLiteral,
-  VaniCmdLiteral,
-  SelectorLiteral,
   Word,
   Token,
   kTokenReserved,
@@ -24,7 +22,7 @@ class CompilerLexer {
    */
   constructor(input) {
     if (!(input instanceof FileSlice))
-      input = FileSlice.fromFile("", input, 0);
+      input = FileSlice.fromFile("__temp__.skyc", input, 0);
 
     this.original = input;
     this.currentFile = input;
@@ -213,7 +211,7 @@ class CompilerLexer {
       case '=':
         if (this.readch('='))
           return this.buildToken(kTokenReserved.Eq);
-        return this.buildToken(kTokenReserved.Lt);
+        return this.buildToken(kTokenReserved.Assign);
       case '!':
         if (this.readch('='))
           return this.buildToken(kTokenReserved.Neq);
@@ -288,7 +286,7 @@ class CompilerLexer {
     if (this.done())
       return null;
 
-    // Unknown token — emit as a plain token.
+    // Unknown token - emit as a plain token.
     var t = this.buildToken(this.peek, kTokenType.Token);
     this.peek = " ";
     return t

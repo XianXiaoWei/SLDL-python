@@ -16,7 +16,7 @@ class TokenContent {
   }
 
   toString() {
-    return this.content
+    return this.content;
   }
 }
 
@@ -71,11 +71,11 @@ class Word extends TokenContent {
    */
   constructor(content) {
     super(kTokenType.Identifier, content);
-    this.lexeme = content
+    this.lexeme = content;
   }
 
   toString() {
-    return this.lexeme
+    return this.lexeme;
   }
 }
 
@@ -118,6 +118,15 @@ class FloatConstLiteral extends Word {
 
   toString() {
     return this.lexeme;
+  }
+}
+
+class Type extends Word {
+  /**
+   * @param {string} name - Type name.
+   */
+  constructor(name) {
+    super(name);
   }
 }
 
@@ -165,7 +174,7 @@ class Token {
 
     /** File name. */
     this.fileName = fileSlice.file;
-    /** FileSlice object the token from. */
+    /** FileSlice object which the token from. */
     this.fileSlice = fileSlice;
     /** Line number in the complete file. */
     this.line = line;
@@ -179,6 +188,10 @@ class Token {
 
   toString() {
     return `<${this.content}> L${this.line} P${this.begin}-${this.end}`
+  }
+
+  raw() {
+    return this.content.toString();
   }
 }
 
@@ -204,6 +217,7 @@ const kTokenReserved = Object.freeze({
   Geq: new TokenContent(kTokenType.Token, ">="),
   Lt: new TokenContent(kTokenType.Token, "<"),
   Gt: new TokenContent(kTokenType.Token, ">"),
+  Assign: new TokenContent(kTokenType.Token, "="),
   And: new TokenContent(kTokenType.Token, "&"),
   Or: new TokenContent(kTokenType.Token, "|"),
   BracketL: new TokenContent(kTokenType.Token, "["),
@@ -228,16 +242,47 @@ const kTokenReserved = Object.freeze({
   Else: new Word("else"),
   Class: new Word("class"),
   Struct: new Word("struct"),
+  Extends: new Word("extends"),
   Enum: new Word("enum"),
   Prim: new Word("prim"),
+
+  Bool: new Type("bool"),
+  Int8: new Type("int8_t"),
+  Uint8: new Type("uint8_t"),
+  Int16: new Type("int16_t"),
+  Uint16: new Type("uint16_t"),
+  Int32: new Type("int32_t"),
+  Uint32: new Type("uint32_t"),
+  Int64: new Type("int64_t"),
+  Uint64: new Type("uint64_t"),
+  Cstring: new Type("cstring"),
+  TgcString: new Type("TgcString"),
 });
+
+const kPrimitiveTypes = Object.freeze({
+  Bool: kTokenReserved.Bool,
+  Int8: kTokenReserved.Int8,
+  Uint8: kTokenReserved.Uint8,
+  Int16: kTokenReserved.Int16,
+  Uint16: kTokenReserved.Uint16,
+  Int32: kTokenReserved.Int32,
+  Uint32: kTokenReserved.Uint32,
+  Int64: kTokenReserved.Int64,
+  Uint64: kTokenReserved.Uint64,
+  Cstring: kTokenReserved.Cstring,
+  TgcString: kTokenReserved.TgcString,
+})
 
 module.exports = {
   TokenContent,
   NumericLiteral,
   StringLiteral,
   Word,
+  BooleanLiteral,
+  FloatConstLiteral,
+  Type,
   Token,
   kTokenType,
-  kTokenReserved
+  kTokenReserved,
+  kPrimitiveTypes
 };
