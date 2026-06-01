@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tgz
+*.zip
+*.exe
+*.o
+*.a
+*.obj
+*.dll
+test*

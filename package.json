@@ -1,0 +1,10 @@
+{
+  "name": "that-sky-compiler-packages",
+  "private": true,
+  "workspaces": [
+    "sldl-frontend",
+    "sldl-preprocessor",
+    "sldl-linker",
+    "sldl-objects"
+  ]
+}
