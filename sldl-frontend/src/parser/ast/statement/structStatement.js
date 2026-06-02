@@ -26,9 +26,11 @@ class StructMemberDecl extends AstNode {
       return true;
     } catch (e) {
       P.onerror(e);
-      // Panic til ";"
-      P.moveTil(kTokenReserved.Semicolon);
-      P.move();
+      // Panic til ";" or "}"
+      P.moveTil(kTokenReserved.Semicolon, kTokenReserved.BraceR);
+      if (P.test(kTokenReserved.Semicolon))
+        // Prepare for the next member.
+        P.move();
       return false;
     }
   }
@@ -51,11 +53,6 @@ class StructMemberDecl extends AstNode {
     var typeName = P.look
       , typedef = E.get(typeName);
 
-    if (!typedef || !typedef.isPrimitive())
-      this.error(kBulitInExceptions.InvalidType, typeName);
-
-    this.typeName = typeName;
-
     // Member name.
     P.move();
     P.match(kTokenType.Identifier);
@@ -75,6 +72,13 @@ class StructMemberDecl extends AstNode {
     // ";"
     P.match(kTokenReserved.Semicolon);
     P.move();
+
+    if (!typedef)
+      this.error(kBulitInExceptions.InvalidType, typeName);
+    if (!typedef.isPrimitive())
+      this.error(kBulitInExceptions.StructInvalidMemberType, typeName);
+
+    this.typeName = typeName;
   }
 
   /**
