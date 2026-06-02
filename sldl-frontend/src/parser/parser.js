@@ -66,10 +66,10 @@ class CompilerParser {
   /**
    * Move until the given token. Used in panic mode.
    * After the function, loop points to the given token or end of the file.
-   * @param {number|string|TokenContent} cond 
+   * @param {...number|string|TokenContent} cond 
    */
-  moveTil(cond) {
-    while (!this.done && !this.test(cond))
+  moveTil(...cond) {
+    while (!this.done && !cond.some(this.test.bind(this)))
       this.move();
   }
 
@@ -103,13 +103,6 @@ class CompilerParser {
     if (this.errors.length >= 1024)
       throw kBulitInExceptions.TooManyError.from();
     this.errors.push(e);
-  }
-
-  /**
-   * 
-   */
-  exprConstant() {
-
   }
 }
 
