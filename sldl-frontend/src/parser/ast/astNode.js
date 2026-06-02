@@ -15,15 +15,17 @@ class AstNode {
      * Complete initial token with context. Errors of the node will use this
      * token as context.
      */
-    this.ctx = token;
+    this.ctx = token || void 0;
   }
 
   /**
    * Triggers an error.
-   * @param {CompileException} e
+   * @param {SimpleCompileExceptionBuilder} e - Exception builder.
+   * @param {Token} [token] - Override the default token.
+   * @param {...any} args - Other arguments.
    */
-  error(e) {
-    throw e;
+  error(e, token, ...args) {
+    throw e.from(token ? token : this.ctx, ...args);
   }
 
   /**

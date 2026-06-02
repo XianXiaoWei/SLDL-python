@@ -5,7 +5,7 @@ const { AstNode } = require("../astNode.js");
 const { Statement } = require("./statement.js");
 
 /** Represents a member variable of a class. */
-class ClassMemberDecl extends AstNode {
+class StructMemberDecl extends AstNode {
   constructor() {
     super();
 
@@ -17,7 +17,7 @@ class ClassMemberDecl extends AstNode {
   /**
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {ClassStatement} clazz - Class statement.
+   * @param {StructStatement} clazz - Class statement.
    * @returns {boolean}
    */
   parse(P, E, clazz) {
@@ -36,7 +36,7 @@ class ClassMemberDecl extends AstNode {
   /**
    * Parse a class member declaration.
    * 
-   * <ClassMember>:
+   * <StructMember>:
    *   <Identifier> <Identifier> ;
    *   <Identifier> <Identifier> = <Literal> ;
    * 
@@ -45,13 +45,13 @@ class ClassMemberDecl extends AstNode {
    * 
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {ClassStatement} clazz - Class statement.
+   * @param {StructStatement} clazz - Class statement.
    */
   syntax(P, E, clazz) {
     var typeName = P.look
       , typedef = E.get(typeName);
 
-    if (!typedef || !typedef.isType())
+    if (!typedef || !typedef.isPrimitive())
       this.error(kBulitInExceptions.InvalidType, typeName);
 
     this.typeName = typeName;
@@ -87,7 +87,7 @@ class ClassMemberDecl extends AstNode {
 }
 
 /** Represents the member declaration block of a class. */
-class ClassBlock extends AstNode {
+class StructBlock extends AstNode {
   /**
    * @param {Token} token - Token "{"
    */
@@ -98,7 +98,7 @@ class ClassBlock extends AstNode {
   /**
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {ClassStatement} clazz - Class statement.
+   * @param {StructStatement} clazz - Class statement.
    * @returns {boolean}
    */
   parse(P, E, clazz) {
@@ -117,19 +117,19 @@ class ClassBlock extends AstNode {
   /**
    * Parse a class block.
    * 
-   * <ClassBlock>:
-   *   { <ClassMembers> }
+   * <StructBlock>:
+   *   { <StructMembers> }
    * 
-   * <ClassMembers>:
-   *   <ClassMember> <ClassMembers>
-   *   <ClassMember>
+   * <StructMembers>:
+   *   <StructMember> <StructMembers>
+   *   <StructMember>
    * 
    * Entry: look -> at "{"
    * Exit: look -> after "}"
    *
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {ClassStatement} clazz - Class statement.
+   * @param {StructStatement} clazz - Class statement.
    */
   syntax(P, E, clazz) {
     // "{"
@@ -137,7 +137,7 @@ class ClassBlock extends AstNode {
     P.move();
 
     while (P.test(kTokenType.Identifier)) {
-      var decl = new ClassMemberDecl();
+      var decl = new StructMemberDecl();
       if (decl.parse(P, E, clazz)) {
         // Add member to class.
         clazz.addMember(decl);
@@ -151,7 +151,7 @@ class ClassBlock extends AstNode {
 }
 
 /** Represents a class. */
-class ClassStatement extends Statement {
+class StructStatement extends Statement {
   /**
    * @param {Token} token - The token "class".
    */
@@ -159,19 +159,18 @@ class ClassStatement extends Statement {
     super(token);
 
     this.name = void 0;
-    this.parent = void 0;
     this.members = new Map();
   }
 
   /**
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {ClassStatement} clazz - Class statement.
+   * @param {StructStatement} struct - Class statement.
    * @returns {boolean}
    */
-  parse(P, E, clazz) {
+  parse(P, E, struct) {
     try {
-      this.syntax(P, E, clazz);
+      this.syntax(P, E, struct);
       return true;
     } catch (e) {
       P.onerror(e);
@@ -183,20 +182,19 @@ class ClassStatement extends Statement {
   }
 
   /**
-   * Parse a class declaration.
+   * Parse a struct declaration.
    * 
-   * <ClassStatement>:
-   *   class <Identifier> <ClassBlock>
-   *   class <Identifier> extends <Identifier> <ClassBlock>
+   * <StructStatement>:
+   *   struct <Identifier> <StructBlock>
    * 
-   * Entry: at "class"
-   * Exit: after <ClassBlock>
+   * Entry: look -> at "struct"
+   * Exit: look -> after <StructBlock>
    * 
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
    */
   syntax(P, E) {
-    // Skip "class".
+    // Skip "struct".
     var start = P.look;
 
     P.move();
@@ -208,44 +206,23 @@ class ClassStatement extends Statement {
     // Skip class name.
     P.move();
 
-    // Process extends.
-    if (P.content == kTokenReserved.Extends) {
-      P.move();
-      P.match(kTokenType.Identifier);
-      var parentClassName = P.look;
-      P.move();
-
-      var parent = E.get(parentClassName);
-      if (!parent || !parent.isType())
-        throw kBulitInExceptions.InvalidType.from(parentClassName);
-
-      if (!parent.isExtendable())
-        throw kBulitInExceptions.ClassInvalidParentType.from(parentClassName);
-
-      // Merge the member variables of the parent.
-      for (var kv of parent.node.members)
-        this.members.set(kv[0], kv[1]);
-
-      this.parent = parent;
-    }
-
-    new ClassBlock(P.look).parse(P, E, this);
-    E.put(EnvEntry.createClass(this.name, this));
+    new StructBlock(P.look).parse(P, E, this);
+    E.put(EnvEntry.createStruct(this.name, this));
   }
 
   /**
-   * @param {ClassMemberDecl} member
+   * @param {StructMemberDecl} member
    */
   addMember(member) {
     var name = member.getName();
     if (this.members.has(name))
-      throw kBulitInExceptions.DuplicatedMember.from(member.id);
+      this.error(kBulitInExceptions.DuplicatedMember, member.id);
 
     this.members.set(name, member);
   }
 }
 
 module.exports = {
-  ClassMemberDecl,
-  ClassStatement
+  StructMemberDecl,
+  StructStatement
 };

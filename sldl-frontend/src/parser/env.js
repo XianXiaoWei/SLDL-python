@@ -41,6 +41,14 @@ const kEnvEntryType = Object.freeze({
 
 /** Represents a register in symbol table. */
 class EnvEntry {
+  static createStruct(token, node) {
+    return new EnvEntry(
+      kEnvEntryType.Struct,
+      token.content,
+      node
+    );
+  }
+
   static createClass(token, node) {
     return new EnvEntry(
       kEnvEntryType.Class,
