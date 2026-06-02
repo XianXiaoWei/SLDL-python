@@ -17,12 +17,12 @@ class StructMemberDecl extends AstNode {
   /**
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {StructStatement} clazz - Class statement.
+   * @param {StructStatement} struct - Class statement.
    * @returns {boolean}
    */
-  parse(P, E, clazz) {
+  parse(P, E, struct) {
     try {
-      this.syntax(P, E, clazz);
+      this.syntax(P, E, struct);
       return true;
     } catch (e) {
       P.onerror(e);
@@ -47,9 +47,9 @@ class StructMemberDecl extends AstNode {
    * 
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {StructStatement} clazz - Class statement.
+   * @param {StructStatement} struct - Class statement.
    */
-  syntax(P, E, clazz) {
+  syntax(P, E, struct) {
     var typeName = P.look
       , typedef = E.get(typeName);
 
@@ -102,12 +102,12 @@ class StructBlock extends AstNode {
   /**
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {StructStatement} clazz - Class statement.
+   * @param {StructStatement} struct - Class statement.
    * @returns {boolean}
    */
-  parse(P, E, clazz) {
+  parse(P, E, struct) {
     try {
-      this.syntax(P, E, clazz);
+      this.syntax(P, E, struct);
       return true;
     } catch (e) {
       P.onerror(e);
@@ -133,18 +133,18 @@ class StructBlock extends AstNode {
    *
    * @param {Parser} P - Parser.
    * @param {Env} E - Symbol table.
-   * @param {StructStatement} clazz - Class statement.
+   * @param {StructStatement} struct - Class statement.
    */
-  syntax(P, E, clazz) {
+  syntax(P, E, struct) {
     // "{"
     P.match(kTokenReserved.BraceL);
     P.move();
 
     while (P.test(kTokenType.Identifier)) {
       var decl = new StructMemberDecl();
-      if (decl.parse(P, E, clazz)) {
+      if (decl.parse(P, E, struct)) {
         // Add member to class.
-        clazz.addMember(decl);
+        struct.addMember(decl);
       }
     }
 

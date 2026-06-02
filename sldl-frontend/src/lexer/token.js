@@ -1,4 +1,5 @@
 const kTokenType = Object.freeze({
+  Eof: -1,
   Token: 0,
   Number: 1,
   String: 2,
@@ -197,6 +198,8 @@ class Token {
 
 /** All of the tokens, reserved words and marks in HLCL. */
 const kTokenReserved = Object.freeze({
+  Eof: new TokenContent(kTokenType.Eof, ""),
+
   LogicAnd: new TokenContent(kTokenType.Token, "&&"),
   LogicOr: new TokenContent(kTokenType.Token, "||"),
   AddTo: new TokenContent(kTokenType.Token, "+="),
