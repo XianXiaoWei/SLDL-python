@@ -60,6 +60,8 @@ const kBulitInExceptions = Object.freeze({
     `invalid type "${token.raw()}" in struct, struct members must be primitive`),
   ClassInvalidParentType: new DynamicCompileExceptionBuilder((token) =>
     `invalid parent "${token.raw()}" in class`),
+  MultipleDefinition: new DynamicCompileExceptionBuilder((token) =>
+    `multiple definition "${token.raw()}"`),
   TooManyError: new SimpleCompileExceptionBuilder("too many errors"),
 });
 
