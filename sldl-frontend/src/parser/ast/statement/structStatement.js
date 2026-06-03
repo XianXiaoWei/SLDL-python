@@ -141,11 +141,10 @@ class StructBlock extends AstNode {
     P.move();
 
     while (P.test(kTokenType.Identifier)) {
-      var decl = new StructMemberDecl();
-      if (decl.parse(P, E, struct)) {
+      var decl = StructMemberDecl.parse(P, E, struct)();
+      if (decl)
         // Add member to class.
         struct.addMember(decl);
-      }
     }
 
     // "}"
@@ -214,7 +213,7 @@ class StructStatement extends Statement {
     // Skip class name.
     P.move();
 
-    new StructBlock(P.look).parse(P, E, this);
+    StructBlock.parse(P, E, this)(P.look);
     var entry = EnvEntry.createStruct(this.name, this);
     E.put(entry);
   }

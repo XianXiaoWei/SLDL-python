@@ -139,11 +139,10 @@ class ClassBlock extends AstNode {
     P.move();
 
     while (P.test(kTokenType.Identifier)) {
-      var decl = new ClassMemberDecl();
-      if (decl.parse(P, E, clazz)) {
+      var decl = ClassMemberDecl.parse(P, E, clazz)();
+      if (decl)
         // Add member to class.
         clazz.addMember(decl);
-      }
     }
 
     // "}"
@@ -242,7 +241,7 @@ class ClassStatement extends Statement {
     this.parent = parent;
 
     // Parse members.
-    new ClassBlock(P.look).parse(P, E, this);
+    ClassBlock.parse(P, E, this)(P.look);
 
     // Register into the symbol table.
     var entry = EnvEntry.createClass(this.name, this);

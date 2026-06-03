@@ -8,6 +8,22 @@
  */
 class AstNode {
   /**
+   * @param {Parser} P 
+   * @param {Env} E 
+   * @param  {...any} args 
+   * @returns {(T:Token,...V:any[])=>AstNode|undefined}
+   */
+  static parse(P, E, ...args) {
+    var self = this;
+    return function (T, ...V) {
+      var r = new self(T, ...V);
+      if (!r.parse(P, E, ...args))
+        return void 0;
+      return r;
+    };
+  }
+
+  /**
    * @param {Token} [token] 
    */
   constructor(token) {
