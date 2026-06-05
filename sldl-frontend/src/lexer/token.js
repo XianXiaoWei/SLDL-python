@@ -188,7 +188,7 @@ class Token {
   }
 
   toString() {
-    return `<${this.content}> L${this.line} P${this.begin}-${this.end}`
+    return `${this.line + 1}:${this.column + 1}: ${this.content}`;
   }
 
   raw() {
@@ -196,7 +196,7 @@ class Token {
   }
 }
 
-/** All of the tokens, reserved words and marks in HLCL. */
+/** All of the tokens, reserved words and marks. */
 const kTokenReserved = Object.freeze({
   Eof: new TokenContent(kTokenType.Eof, ""),
 
@@ -251,6 +251,7 @@ const kTokenReserved = Object.freeze({
   Extern: new Word("extern"),
   If: new Word("if"),
   Struct: new Word("struct"),
+  Var: new Word("var"),
 
   // Types.
   Bool: new Word("bool"),
