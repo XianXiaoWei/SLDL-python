@@ -1,4 +1,4 @@
-const { kBulitInExceptions } = require("sldl-utils");
+const { kBulitInExceptions } = require("../../exceptions.js");
 
 /**
  * Node of abstract syntax tree.

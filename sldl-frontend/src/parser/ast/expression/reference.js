@@ -8,7 +8,7 @@
  * LGPL-3.0-or-later
  */
 
-const { kBulitInExceptions } = require("sldl-utils");
+const { kBulitInExceptions } = require("../../../exceptions.js");
 const { kTokenType } = require("../../../lexer/token.js");
 const { Expression } = require("./expression.js");
 

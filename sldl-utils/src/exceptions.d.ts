@@ -1,30 +1,17 @@
-export class CompileException extends Error {
-  context: any;
-  constructor(msg: string, token: any);
+export class SldlException extends Error {
+  type: SimpleExceptionBuilder | DynamicExceptionBuilder;
+  constructor(msg: string, type: SimpleExceptionBuilder | DynamicExceptionBuilder);
   as(): string;
 }
 
-export class SimpleCompileExceptionBuilder {
+export class SimpleExceptionBuilder {
   message: string;
   constructor(msg: string);
-  from(token?: any): CompileException;
+  from(): SldlException;
 }
 
-export class DynamicCompileExceptionBuilder {
-  builder: (token: any, ...args: any[]) => string;
-  constructor(builder: (token: any, ...args: any[]) => string);
-  from(token: any, ...args: any[]): CompileException;
+export class DynamicExceptionBuilder {
+  builder: (...args: any[]) => string;
+  constructor(builder: (...args: any[]) => string);
+  from(...args: any[]): SldlException;
 }
-
-export const kBulitInExceptions: {
-  readonly Unexpected: DynamicCompileExceptionBuilder;
-  readonly DuplicatedMember: DynamicCompileExceptionBuilder;
-  readonly InvalidType: DynamicCompileExceptionBuilder;
-  readonly InvalidRef: DynamicCompileExceptionBuilder;
-  readonly StructInvalidMemberType: DynamicCompileExceptionBuilder;
-  readonly ClassInvalidParentType: DynamicCompileExceptionBuilder;
-  readonly MultipleDefinition: DynamicCompileExceptionBuilder;
-  readonly Undeclared: DynamicCompileExceptionBuilder;
-  readonly TooManyError: SimpleCompileExceptionBuilder;
-  readonly UnexpectedEOF: SimpleCompileExceptionBuilder;
-};

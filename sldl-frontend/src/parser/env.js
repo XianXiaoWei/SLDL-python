@@ -5,7 +5,7 @@
  * LGPL-3.0-or-later
  */
 
-const { kBulitInExceptions } = require("sldl-utils");
+const { kBulitInExceptions } = require("../exceptions.js");
 const { Token, TokenContent, kInternalTypes } = require("../lexer/token.js");
 
 const kEnvEntryType = Object.freeze({
@@ -122,16 +122,20 @@ class EnvEntry {
 
   /**
    * @param {EnvEntry} parent 
+   * @returns {this}
    */
   setParent(parent) {
     this.parent = parent;
+    return this;
   }
 
   /**
    * @param {AstNode} value 
+   * @returns {this}
    */
   setValue(value) {
     this.value = value;
+    return this;
   }
 
   /**

@@ -5,7 +5,8 @@
  * LGPL-3.0-or-later
  */
 
-const { FileSlice, kBulitInExceptions } = require("sldl-utils");
+const { FileSlice } = require("sldl-utils");
+const { kBulitInExceptions } = require("../exceptions.js");
 const { CompilerLexer } = require("../lexer/lexer.js");
 const { TokenContent, kTokenType, kTokenReserved, Token, kInternalTypes } = require("../lexer/token.js");
 const { Env, EnvEntry, kEnvEntryType } = require("./env.js");

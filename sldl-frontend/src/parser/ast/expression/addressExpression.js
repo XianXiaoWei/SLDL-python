@@ -1,4 +1,4 @@
-const { kBulitInExceptions } = require("sldl-utils");
+const { kBulitInExceptions } = require("../../../exceptions.js");
 const { kTokenReserved } = require("../../../lexer/token.js");
 const { Expression } = require("./expression.js");
 const { PrimaryExpression } = require("./primaryExpression.js");

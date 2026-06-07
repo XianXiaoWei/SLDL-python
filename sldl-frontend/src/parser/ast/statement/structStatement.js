@@ -1,4 +1,4 @@
-const { kBulitInExceptions } = require("sldl-utils");
+const { kBulitInExceptions } = require("../../../exceptions.js");
 const { kTokenReserved, kTokenType } = require("../../../lexer/token.js");
 const { EnvEntry } = require("../../env.js");
 const { AstNode } = require("../astNode.js");
