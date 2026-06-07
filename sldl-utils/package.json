@@ -12,6 +12,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "base64-js": "^1.5.1",
+    "ieee754": "^1.2.1"
   },
   "author": "That Sky Project",
   "license": "LGPL-3.0-or-later",
