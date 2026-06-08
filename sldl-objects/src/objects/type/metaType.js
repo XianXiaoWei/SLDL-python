@@ -3,7 +3,8 @@ const kMetaValueType = Object.freeze({
   Number: 1,
   String: 2,
   Struct: 3,
-  Class: 4
+  Class: 4,
+  Pointer: 5,
 });
 
 class MetaType {

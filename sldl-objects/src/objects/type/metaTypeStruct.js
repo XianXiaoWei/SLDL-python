@@ -64,8 +64,16 @@ class MetaTypeStructMember extends MetaType {
     if (this.count == 1)
       return this.def.write(B, val, begin);
 
-    for (var i = 0; i < this.count; i++)
-      this.def.write(B, val[i], begin + i * this.getSize());
+    if (this.count != val.length)
+      return 0;
+
+    for (var i = 0; i < this.count; i++) {
+      var v = val[i];
+      if (v.def != this)
+        return 0;
+      if (!this.def.write(B, v, begin + i * this.getSize()))
+        return 0;
+    }
 
     return this.getSize() * this.count;
   }
