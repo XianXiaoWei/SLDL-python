@@ -11,23 +11,25 @@ class MetaTypeString extends MetaType {
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {number} off 
    * @returns {LevelValueBool}
    */
-  read(B, off) {
+  read(L, B, off) {
     var r = new LevelValueString(this);
     r.setValue(B.readStringZero(off));
     return r;
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {LevelValueBool} val 
    * @param {number} off 
    * @returns {number} Number of bytes written.
    */
-  write(B, val, off) {
+  write(L, B, val, off) {
     if (val.def != this)
       return 0;
     B.writeStringZero(val.getValue() + "\0", off);

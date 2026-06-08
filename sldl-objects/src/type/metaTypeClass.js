@@ -1,54 +1,11 @@
 const { Buffer } = require("sldl-utils");
 const { LevelValueClass } = require("../value/levelValueClass.js");
-const { MetaType, kMetaValueType, kMetaTypes } = require("./metaType.js");
+const { MetaType, kMetaValueType, MetaTypeForward } = require("./metaType.js");
 const { kObjectExceptions } = require("../exceptions.js");
 
-class MetaTypeClassMember extends MetaType {
+class MetaTypeClassMember extends MetaTypeForward {
   constructor(def, name) {
-    super(name);
-
-    this.def = def;
-    this.name = name;
-  }
-
-  /**
-   * @returns {number}
-   */
-  getSize() {
-    return this.def.getSize();
-  }
-
-  /**
-   * @returns {number}
-   */
-  getAlign() {
-    return this.def.getAlign();
-  }
-
-  /**
-   * @returns {number}
-   */
-  valueType() {
-    return this.def.valueType();
-  }
-
-  /**
-   * @param {Buffer} B 
-   * @param {number} off
-   * @returns {LevelValue}
-   */
-  read(B, off) {
-    return this.def.read(B, off);
-  }
-
-  /**
-   * @param {Buffer} B 
-   * @param {LevelValue} val 
-   * @param {number} off
-   * @returns {number}
-   */
-  write(B, val, off) {
-    return this.def.write(B, val, off);
+    super(def, name);
   }
 }
 
@@ -65,11 +22,12 @@ class MetaTypeClassMemberArray extends MetaTypeClassMember {
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {number} off
    * @returns {LevelValue[]}
    */
-  read(B, off) {
+  read(L, B, off) {
     var count = B.readUint32LE(off)
       , cursor = off + 4;
 
@@ -78,7 +36,7 @@ class MetaTypeClassMemberArray extends MetaTypeClassMember {
 
     var r = [];
     for (var i = 0; i < count; i++) {
-      var v = this.def.read(B, cursor);
+      var v = this.def.read(L, B, cursor);
       r.push(v);
       cursor += v.getSize();
     }
@@ -87,20 +45,21 @@ class MetaTypeClassMemberArray extends MetaTypeClassMember {
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {LevelValue[]} val 
    * @param {number} off
    * @returns {number}
    */
-  write(B, val, off) {
-    if (val.length > this.maxCount)
+  write(L, B, val, off) {
+    if (this.maxCount && val.length > this.maxCount)
       return 0;
 
-    B.writeUint32(val.length);
+    B.writeUInt32LE(val.length, off);
 
     var cursor = off + 4;
     for (var v of val) {
-      var n = this.def.write(B, v, cursor);
+      var n = this.def.write(L, B, v, cursor);
       if (!n)
         return 0;
       cursor += n;
@@ -155,12 +114,12 @@ class MetaTypeClass extends MetaType {
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {number} off 
-   * @param {LoIndices} L 
    * @returns {LevelValue|null|undefined}
    */
-  read(B, off, L) {
+  read(L, B, off) {
     var cursor = off
       , classIdx = B.readUint32LE(cursor)
       , name = B.readStringZero(cursor + 4);
@@ -170,7 +129,7 @@ class MetaTypeClass extends MetaType {
     if (!raw)
       throw kObjectExceptions.InvalidClassIndex.from(classIdx);
     if (raw.def != this)
-      return raw.def.read(B, off, L);
+      return raw.def.read(L, B, off);
 
     // Found the correct class definition, read from the buffer.
     cursor += 4 + Buffer.from(name).length + 1;
@@ -178,7 +137,7 @@ class MetaTypeClass extends MetaType {
     var r = new LevelValueClass(this, name);
     for (var member of raw.raw.keys()) {
       var m = this.members.get(member)
-        , v = m.read(B, cursor);
+        , v = m.read(L, B, cursor);
 
       if (!v)
         return void 0;
@@ -201,13 +160,41 @@ class MetaTypeClass extends MetaType {
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
-   * @param {LevelValueStruct} val 
+   * @param {LevelValueClass|null} val 
    * @param {number} off 
-   * @returns {number} Number of bytes written.
+   * @returns {number}
    */
-  write(B, val, off, L) {
+  write(L, B, val, off) {
+    var cursor = off;
 
+    // Look up the class index for this object's type.
+    var classIdx = L.getClassIdx(val.getDef().getName());
+    B.writeUInt32LE(classIdx, cursor);
+    cursor += 4;
+
+    // Write the object name as a zero-terminated string inline.
+    var name = Buffer.from(val.getName() + "\0");
+    name.copy(B, cursor);
+    cursor += name.length;
+
+    // Write each member in the raw memvar order from the LoClass.
+    var raw = L.classes[classIdx];
+    for (var memberName of raw.raw.keys()) {
+      var m = this.members.get(memberName)
+        , v = val.getValue(memberName);
+
+      if (!v)
+        return 0;
+
+      var n = m.write(L, B, v, cursor);
+      if (!n)
+        return 0;
+      cursor += n;
+    }
+
+    return cursor - off;
   }
 }
 

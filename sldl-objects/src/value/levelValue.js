@@ -15,14 +15,6 @@ class LevelValue {
 
   /**
    * Get the size of the value.
-   * @returns {MetaType}
-   */
-  getSize() {
-    return this.def.getSize();
-  }
-
-  /**
-   * Get the size of the value.
    * @returns {number}
    */
   getSize() {
@@ -51,14 +43,6 @@ class LevelValue {
    */
   setValue(value) {
     this.value = value;
-  }
-
-  /**
-   * Get the value type.
-   * @returns {number}
-   */
-  getSize() {
-    return this.def.getSize();
   }
 
   /**

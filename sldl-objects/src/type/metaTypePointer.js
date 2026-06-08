@@ -22,23 +22,25 @@ class MetaTypePointer extends MetaType {
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {number} off 
    * @returns {LevelValuePointer}
    */
-  read(B, off) {
+  read(L, B, off) {
     var r = new LevelValuePointer(this);
     r.setIndex(B.readUint32LE(off));
     return r;
   }
 
   /**
+   * @param {LoIndices} L 
    * @param {Buffer} B 
    * @param {LevelValuePointer} val 
    * @param {number} off 
    * @returns {number} Number of bytes written.
    */
-  write(B, val, off) {
+  write(L, B, val, off) {
     B.writeUint32LE(val.index, off);
     return this.getSize();
   }

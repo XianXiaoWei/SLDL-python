@@ -7,6 +7,8 @@ const kObjectExceptions = Object.freeze({
     `unrecognized class name "${name}"`),
   MultipleObjectName: new DynamicExceptionBuilder((name) =>
     `multiple object name "${name}"`),
+  MultipleClassName: new DynamicExceptionBuilder((name) =>
+    `multiple class name "${name}"`),
   MemberMismatch: new DynamicExceptionBuilder((clazz, name) =>
     `member mismatch ${clazz}${name ? "::" + name : ""}`),
   InvalidClassIndex: new DynamicExceptionBuilder((idx) =>

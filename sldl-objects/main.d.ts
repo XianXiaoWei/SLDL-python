@@ -1,5 +1,5 @@
 /**
- * TGCL binary level format — type declarations.
+ * TGCL binary level format - type declarations.
  *
  * Copyright (c) 2026 That Sky Project
  * LGPL-3.0-or-later
@@ -35,14 +35,31 @@ export const kMetaValueType: {
 };
 
 export class MetaType {
-  name: string;
+  protected name: string;
 
   constructor(name: string);
+  getName(): string;
   getSize(): number;
   getAlign(): number;
   valueType(): number;
-  read(B: Buffer, off: number, ...args: any[]): any;
-  write(B: Buffer, val: any, off: number, ...args: any[]): number;
+  read(L: LoIndices, B: Buffer, off: number): any;
+  write(L: LoIndices, B: Buffer, val: any, off: number): number;
+}
+
+/**
+ * Base class for metatype forwarding (e.g. member types).
+ * Not exported from the package — used internally by MetaTypeClassMember
+ * and MetaTypeStructMember.
+ */
+declare class MetaTypeForward extends MetaType {
+  protected def: MetaType;
+
+  constructor(def: MetaType, name: string);
+  getSize(): number;
+  getAlign(): number;
+  valueType(): number;
+  read(L: LoIndices, B: Buffer, off: number): any;
+  write(L: LoIndices, B: Buffer, val: any, off: number): number;
 }
 
 // =========================================================================
@@ -50,8 +67,8 @@ export class MetaType {
 // =========================================================================
 
 export class LevelValue {
-  def: MetaType;
-  value: any;
+  protected def: MetaType;
+  protected value: any;
 
   constructor(def: MetaType);
   getDef(): MetaType;
@@ -89,7 +106,7 @@ export class LevelValueString extends LevelValue {
 // =========================================================================
 
 export class LevelValuePointer extends LevelValue {
-  index: number;
+  protected index: number;
 
   constructor();
   backpatch(L: LoIndices): void;
@@ -101,7 +118,7 @@ export class LevelValuePointer extends LevelValue {
 // =========================================================================
 
 export class LevelValueStruct extends LevelValue {
-  value: Map<string, LevelValue | LevelValue[]>;
+  protected value: Map<string, LevelValue | LevelValue[]>;
 
   constructor(def: MetaTypeStruct);
   getValue(name: string): LevelValue | LevelValue[] | undefined;
@@ -113,9 +130,9 @@ export class LevelValueStruct extends LevelValue {
 // =========================================================================
 
 export class LevelValueClass extends LevelValue {
-  name: string;
-  value: Map<string, LevelValue | LevelValue[]>;
-  size: number;
+  protected name: string;
+  protected value: Map<string, LevelValue | LevelValue[]>;
+  protected size: number;
 
   constructor(def: MetaTypeClass, name: string);
   getSize(): number;
@@ -133,14 +150,14 @@ export class MetaTypeBool extends MetaType {
   getSize(): number;
   getAlign(): number;
   valueType(): number;
-  read(B: Buffer, off: number): LevelValueBool;
-  write(B: Buffer, val: LevelValueBool, off: number): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValueBool;
+  write(L: LoIndices, B: Buffer, val: LevelValueBool, off: number): number;
 }
 
 export class MetaTypeNumber extends MetaType {
-  size: number;
-  reader: (this: Buffer, offset: number) => number | bigint;
-  writer: (this: Buffer, value: number | bigint, offset: number) => number | void;
+  protected size: number;
+  protected reader: (this: Buffer, offset: number) => number | bigint;
+  protected writer: (this: Buffer, value: number | bigint, offset: number) => number | void;
 
   constructor(
     name: string,
@@ -151,8 +168,8 @@ export class MetaTypeNumber extends MetaType {
   getSize(): number;
   getAlign(): number;
   valueType(): number;
-  read(B: Buffer, off: number): LevelValueNumber;
-  write(B: Buffer, val: LevelValueNumber, off: number): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValueNumber;
+  write(L: LoIndices, B: Buffer, val: LevelValueNumber, off: number): number;
 }
 
 // =========================================================================
@@ -164,8 +181,8 @@ export class MetaTypePointer extends MetaType {
   getSize(): number;
   getAlign(): number;
   valueType(): number;
-  read(B: Buffer, off: number): LevelValuePointer;
-  write(B: Buffer, val: LevelValuePointer, off: number): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValuePointer;
+  write(L: LoIndices, B: Buffer, val: LevelValuePointer, off: number): number;
 }
 
 // =========================================================================
@@ -175,26 +192,23 @@ export class MetaTypePointer extends MetaType {
 export class MetaTypeString extends MetaType {
   constructor(name: string);
   valueType(): number;
-  read(B: Buffer, off: number): LevelValueString;
-  write(B: Buffer, val: LevelValueString, off: number): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValueString;
+  write(L: LoIndices, B: Buffer, val: LevelValueString, off: number): number;
 }
 
 // =========================================================================
 // src/type/metaTypeStruct.js
 // =========================================================================
 
-export class MetaTypeStructMember extends MetaType {
-  def: MetaType;
-  name: string;
-  offset: number;
-  count: number;
+export class MetaTypeStructMember extends MetaTypeForward {
+  protected offset: number;
+  protected count: number;
 
   constructor(def: MetaType, name: string, count?: number);
   getSize(): number;
-  getAlign(): number;
-  valueType(): number;
-  read(B: Buffer, off: number): LevelValue | LevelValue[];
+  read(L: LoIndices, B: Buffer, off: number): LevelValue | LevelValue[];
   write(
+    L: LoIndices,
     B: Buffer,
     val: LevelValue | LevelValue[],
     off: number
@@ -202,10 +216,10 @@ export class MetaTypeStructMember extends MetaType {
 }
 
 export class MetaTypeStruct extends MetaType {
-  members: Map<string, MetaTypeStructMember>;
-  size: number;
-  align: number;
-  cursor: number;
+  protected members: Map<string, MetaTypeStructMember>;
+  protected size: number;
+  protected align: number;
+  protected cursor: number;
 
   constructor(name: string);
   getSize(): number;
@@ -213,44 +227,36 @@ export class MetaTypeStruct extends MetaType {
   valueType(): number;
   addMember(def: MetaType, name: string, count?: number): boolean;
   finalize(align?: number): void;
-  read(B: Buffer, off: number): LevelValueStruct | undefined;
-  write(B: Buffer, val: LevelValueStruct, off: number): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValueStruct | undefined;
+  write(L: LoIndices, B: Buffer, val: LevelValueStruct, off: number): number;
 }
 
 // =========================================================================
 // src/type/metaTypeClass.js
 // =========================================================================
 
-export class MetaTypeClassMember extends MetaType {
-  def: MetaType;
-  name: string;
-
+export class MetaTypeClassMember extends MetaTypeForward {
   constructor(def: MetaType, name: string);
-  getSize(): number;
-  getAlign(): number;
-  valueType(): number;
-  read(B: Buffer, off: number): LevelValue;
-  write(B: Buffer, val: LevelValue, off: number): number;
 }
 
 export class MetaTypeClassMemberArray extends MetaTypeClassMember {
-  maxCount: number;
+  protected maxCount: number;
 
   constructor(def: MetaType, name: string, count?: number);
-  read(B: Buffer, off: number): LevelValue[] | undefined;
-  write(B: Buffer, val: LevelValue[], off: number): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValue[] | undefined;
+  write(L: LoIndices, B: Buffer, val: LevelValue[], off: number): number;
 }
 
 export class MetaTypeClass extends MetaType {
-  parent: MetaTypeClass;
-  members: Map<string, MetaTypeClassMember>;
+  protected parent: MetaTypeClass;
+  protected members: Map<string, MetaTypeClassMember>;
 
   constructor(name: string, parent?: MetaTypeClass | null);
   isCompatible(def: MetaType): boolean;
   valueType(): number;
   addMember(def: MetaType, name: string, count?: number): boolean;
-  read(B: Buffer, off: number, L: LoIndices): LevelValueClass | null | undefined;
-  write(B: Buffer, val: LevelValueStruct, off: number, L?: LoIndices): number;
+  read(L: LoIndices, B: Buffer, off: number): LevelValueClass | null | undefined;
+  write(L: LoIndices, B: Buffer, val: LevelValueStruct, off: number): number;
 }
 
 // =========================================================================
@@ -322,19 +328,29 @@ export class LoIndices {
   pointers: LevelValuePointer[];
 
   constructor();
-  addMemvar(type: number, name: number, size: number, aux: number): LoMemvar;
-  addClass(name: string, firstMemvar: number, numMemvars: number): LoClass;
+  clear(): void;
+  define(definitions: MetaType[]): void;
+  finalize(): void;
+  getClassFromName(name: string): MetaType | undefined;
+  getClassIdx(name: string): number;
+  getObjectIdx(name: string): number;
+  addMemvarFromBlob(type: number, name: number, size: number, aux: number): LoMemvar;
+  addClassFromBlob(name: string, firstMemvar: number, numMemvars: number): LoClass;
+  addObject(obj: LevelValueClass): LevelValueClass;
+  addClassFromDef(def: MetaTypeClass): LoClass;
 }
 
 export class LevelObjects {
-  definitions: Map<string, MetaTypeClass>;
+  definitions: Map<string, MetaType>;
   header: LoHeader;
   strings: LoStringPool;
   objects: Map<string, LevelValueClass>;
 
-  constructor(definitions: Map<string, MetaTypeClass>);
+  constructor(definitions: MetaType[]);
   get(name: string): LevelValueClass | undefined;
-  set(name: string, object: LevelValueClass): void;
+  set(object: LevelValueClass): void;
+  define(definitions: MetaType[]): void;
+  finalize(): void;
   read(B: Buffer): boolean;
   write(): Buffer;
   readDataString(B: Buffer, offset: number): string;

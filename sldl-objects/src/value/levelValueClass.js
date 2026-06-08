@@ -12,6 +12,10 @@ class LevelValueClass extends LevelValue {
     return this.size;
   }
 
+  getName() {
+    return this.name;
+  }
+
   finalize() {
     var size = 0;
     for (var m of this.value.values()) {
