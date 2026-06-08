@@ -207,18 +207,37 @@ class LoClass {
 
 class LoIndices {
   constructor() {
+    /** @type {LoClass[]} */
     this.classes = [];
-    this.objects = [];
+    /** @type {LoMemvar[]} */
     this.memvars = [];
+    /** @type {LevelValueClass[]} */
+    this.objects = [];
+    /** @type {LevelValuePointer[]} */
     this.pointers = [];
   }
 
+  /**
+   * Add a memvar.
+   * @param {number} type 
+   * @param {number} name 
+   * @param {number} size 
+   * @param {number} aux 
+   * @returns {LoMemvar}
+   */
   addMemvar(type, name, size, aux) {
     var m = new LoMemvar(type, name, size, aux);
     this.memvars.push(m);
     return m;
   }
 
+  /**
+   * Add a class.
+   * @param {number} name 
+   * @param {number} firstMemvar 
+   * @param {number} numMemvars 
+   * @returns {LoClass}
+   */
   addClass(name, firstMemvar, numMemvars) {
     var c = new LoClass(name);
     for (var i = 0; i < numMemvars; i++) {
@@ -237,12 +256,33 @@ class LevelObjects {
    * @param {Map<string, MetaTypeClass>} definitions 
    */
   constructor(definitions) {
+    /** @type {Map<string, MetaTypeClass>} */
     this.definitions = new Map(definitions.entries());
+
     this.header = new LoHeader();
     this.strings = new LoStringPool();
+    /** @type {Map<string, LevelValueClass>} */
     this.objects = new Map();
 
     this.definitions.set("Object", kMetaTypes.Object);
+  }
+
+  /**
+   * Get an object.
+   * @param {string} name 
+   * @returns {LevelValueClass|undefined}
+   */
+  get(name) {
+    return this.objects.get(name);
+  }
+
+  /**
+   * Set an object.
+   * @param {string} name 
+   * @param {LevelValueClass} object
+   */
+  set(name, object) {
+    this.objects.set(name, object);
   }
 
   /**
@@ -258,33 +298,41 @@ class LevelObjects {
     for (var i = 0; i < this.header.numMemVars; i++) {
       var off = this.header.memvarsOffset + i * 16;
       indices.addMemvar(
+        // Memvar type, onk of kMemvarTypes.
         B.readUInt32LE(off),
+        // Memvar name.
         this.readDataString(B, B.readUInt32LE(off + 4)),
+        // Memvar size.
         B.readUInt32LE(off + 8),
+        // Memvar aux value (for array).
         B.readUInt32LE(off + 12)
       );
     }
 
     // Read raw classes from the buffer.
     for (var i = 0; i < this.header.numClasses; i++) {
-      var off = this.header.classesOffset + i * 12
-        , rawClass;
+      var off = this.header.classesOffset + i * 12;
 
       // Add a class.
-      rawClass = indices.addClass(
+      indices.addClass(
+        // Name.
         this.readDataString(B, B.readUInt32LE(off)),
+        // First memvar index.
         B.readUInt32LE(off + 4),
+        // Memvar count.
         B.readUInt32LE(off + 8)
       );
+    }
 
-      // Lookup definition and set.
+    // Lookup definition and set.
+    for (var c of indices.classes) {
       // The object reader uses the memvar order from indices.memvars, instead of
       // the definition.
-      var def = this.definitions.get(rawClass.name);
+      var def = this.definitions.get(c.name);
       if (!def)
-        throw kObjectExceptions.InvalidClassName.from(rawClass.name);
+        throw kObjectExceptions.InvalidClassName.from(c.name);
 
-      rawClass.setDef(def);
+      c.setDef(def, indices);
     }
 
     // Read objects.
@@ -314,6 +362,7 @@ class LevelObjects {
    * @returns {Buffer}
    */
   write() {
+    this.strings.initialize();
   }
 
   /**
@@ -329,6 +378,9 @@ class LevelObjects {
 module.exports = {
   LoHeader,
   LoStringPool,
+  LoMemvar,
+  LoClass,
   LoIndices,
-  LevelObjects
+  LevelObjects,
+  kMemvarTypes
 };
