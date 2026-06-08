@@ -15,6 +15,8 @@ const kObjectExceptions = Object.freeze({
     `unrecognized class index "${idx}"`),
   InvalidObjectIndex: new DynamicExceptionBuilder((idx) =>
     `invalid object index "${idx}"`),
+  InvalidObjectName: new DynamicExceptionBuilder((name) =>
+    `unrecognized object name "${name}"`),
 });
 
 module.exports = {

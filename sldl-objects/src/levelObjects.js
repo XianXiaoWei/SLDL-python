@@ -544,6 +544,8 @@ class LevelObjects {
    * @returns {Buffer}
    */
   write() {
+    this.finalize();
+
     // Reset string pool.
     this.strings.initialize();
 
@@ -552,20 +554,45 @@ class LevelObjects {
 
     // Register classes used by objects and collect pointers.
     for (var obj of this.objects.values()) {
-      var className = obj.getDef().getName();
-      if (!indices.classIndices.has(className))
-        indices.addClassFromDef(obj.getDef());
+      var def = obj.getDef()
+        , defName = def.getName();
+
+      // All LevelValueClass defs must be registered in this.definitions,
+      // and the def obtained from the object must match the registered one.
+      var registeredDef = this.definitions.get(defName);
+      if (!registeredDef || registeredDef !== def)
+        throw kObjectExceptions.InvalidClassName.from(defName);
+
+      if (!indices.classIndices.has(defName))
+        indices.addClassFromDef(def);
 
       indices.addObject(obj);
 
       // Collect pointer members for front-patching.
       for (var [name, val] of obj.value) {
-        var member = obj.getDef().members.get(name);
-        if (member && member.valueType() == kMetaValueType.Pointer) {
-          if (Array.isArray(val))
-            indices.pointers.push(...val);
-          else
-            indices.pointers.push(val);
+        var member = def.members.get(name);
+        if (!member || member.valueType() != kMetaValueType.Pointer)
+          continue;
+
+        var ptrs = Array.isArray(val) ? val : [val];
+        for (var pi = 0; pi < ptrs.length; pi++) {
+          var p = ptrs[pi]
+            , target = p.getValue();
+          if (!target || typeof target !== "object") {
+            indices.pointers.push(p);
+            continue;
+          }
+
+          var targetName = target.getName()
+            , targetObj = this.objects.get(targetName);
+          // All referenced LevelValueClass must be in this.objects.
+          if (!targetObj)
+            throw kObjectExceptions.InvalidObjectName.from(targetName);
+          // Duplicate names with different references are not allowed.
+          if (targetObj !== target)
+            throw kObjectExceptions.MultipleObjectName.from(targetName);
+
+          indices.pointers.push(p);
         }
       }
     }
@@ -573,10 +600,10 @@ class LevelObjects {
     // Front-patch pointers: resolve object references to indices.
     for (var p of indices.pointers) {
       var target = p.getValue();
-      if (target) {
+      if (target && typeof target === "object") {
         var idx = indices.objectIndices.get(target.getName());
-        if (idx === undefined)
-          throw kObjectExceptions.InvalidObjectIndex.from(target.getName());
+        if (typeof idx === "undefined")
+          throw kObjectExceptions.InvalidObjectName.from(target.getName());
         p.setIndex(idx);
       } else {
         p.setIndex(0xFFFFFFFF);
@@ -616,8 +643,9 @@ class LevelObjects {
     var totalObjSize = 0;
     for (var obj of indices.objects)
       totalObjSize += obj.getSize();
-    var objBuf = Buffer.allocUnsafe(totalObjSize);
-    var cursor = 0;
+
+    var objBuf = Buffer.allocUnsafe(totalObjSize)
+      , cursor = 0;
     for (var obj of indices.objects) {
       var n = obj.getDef().write(indices, objBuf, obj, cursor);
       if (!n)
@@ -626,12 +654,12 @@ class LevelObjects {
     }
 
     // Calculate offsets.
-    var headerSize = 44;
-    var classesOffset = headerSize;
-    var memvarsOffset = classesOffset + classBuf.length;
-    var stringsOffset = memvarsOffset + memvarBuf.length;
-    var objectsOffset = stringsOffset + stringBuf.length;
-    var fileSize = objectsOffset + cursor;
+    var headerSize = 44
+      , classesOffset = headerSize
+      , memvarsOffset = classesOffset + classBuf.length
+      , stringsOffset = memvarsOffset + memvarBuf.length
+      , objectsOffset = stringsOffset + stringBuf.length
+      , fileSize = objectsOffset + cursor;
 
     // Prepare header.
     this.header.initialize();
