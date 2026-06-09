@@ -38,6 +38,9 @@ class Typedef {
   }
 }
 
+/**
+ * Represents a reference to a declared type (class, struct, enum, primitive, ...).
+ */
 class TypeRef extends Typedef {
   /**
    * @param {EnvEntry} child 
@@ -49,6 +52,24 @@ class TypeRef extends Typedef {
   }
 }
 
+/**
+ * Represents a derived type from Clump (Clump<T>).
+ */
+class TypeDerive extends Typedef {
+  /**
+   * @param {Typedef} child 
+   * @param {AstNode} node
+   */
+  constructor(child, node) {
+    super(child, node);
+
+    this.derived = kInternalTypeEntries.Clump;
+  }
+}
+
+/**
+ * Represents a pointer type to child.
+ */
 class PointerTo extends Typedef {
   /**
    * @param {Typedef} child 
@@ -59,6 +80,9 @@ class PointerTo extends Typedef {
   }
 }
 
+/**
+ * Represents an array of child.
+ */
 class ArrayOf extends Typedef {
   /**
    * @param {Typedef} child 
@@ -97,7 +121,8 @@ const kInternalTypedefs = Object.freeze({
 module.exports = {
   Typedef,
   TypeRef,
+  TypeDerive,
   PointerTo,
   ArrayOf,
-  kInternalTypedefs
+  kInternalTypedefs,
 };

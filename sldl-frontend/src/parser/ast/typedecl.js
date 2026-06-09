@@ -19,7 +19,7 @@ const { kBulitInExceptions } = require("../../exceptions.js");
 const { kTokenReserved, kTokenType } = require("../../lexer/token.js");
 const { AstNode } = require("./astNode.js");
 const { Constant } = require("./expression/constant.js");
-const { TypeRef, PointerTo, ArrayOf } = require("../type.js");
+const { TypeRef, PointerTo, ArrayOf, TypeDerive, Typedef } = require("../type.js");
 
 /** A reference to a named type (primitive or user-defined). */
 class TypeRefNode extends AstNode {
@@ -43,14 +43,17 @@ class TypeRefNode extends AstNode {
     super(token);
 
     /**
-     * The symbol-table entry for this type.
-     * @type {EnvEntry}
+     * The type of the node.
+     * @type {Typedef}
      */
-    this.def = void 0;
+    this.type = void 0;
   }
 
   /**
    * Parse a type name.
+   * 
+   * <TypeRefNode>:
+   *   <Identifier>
    *
    * Entry: look -> Identifier for the type name.
    * Exit:  look -> token after the identifier.
@@ -65,9 +68,60 @@ class TypeRefNode extends AstNode {
     var def = E.get(P.look);
     if (!def)
       throw kBulitInExceptions.InvalidType.from(P.look);
-    this.def = def;
+    this.type = new TypeRef(def);
 
     P.move();
+  }
+}
+
+/** A derived type. */
+class TypeDeriveNode extends TypeRefNode {
+  /**
+   * True when P.look is an identifier that names a known type.
+   * @param {CompilerParser} P
+   * @param {Env} E
+   * @returns {boolean}
+   */
+  static maybe(P, E) {
+    return P.test(kTokenType.Identifier);
+  }
+
+  constructor() {
+    super();
+
+    /**
+     * Child node.
+     * @type {TypeRefNode}
+     */
+    this.ref = void 0;
+  }
+
+  /**
+   * <TypeDeriveNode>:
+   *   <TypeRefNode>
+   *   Clump < <TypeRefNode> >
+   * 
+   * @param {CompilerParser} P
+   * @param {Env} E
+   */
+  syntax(P, E) {
+    if (P.test(kTokenReserved.Clump)) {
+      this.relocate(P.look);
+      P.move();
+
+      P.match(kTokenReserved.Lt);
+      P.move();
+
+      this.ref = TypeRefNode.parse(P, E)();
+      this.type = new TypeDerive(this.ref.type, this);
+
+      P.match(kTokenReserved.Gt);
+      P.move();
+      return this;
+    } else if (TypeRefNode.maybe(P, E))
+      return TypeRefNode.parse(P, E)();
+    else
+      this.error(kBulitInExceptions.Unexpected, P.look);
   }
 }
 
@@ -117,8 +171,12 @@ class TypeDeclarator extends AstNode {
    *   <DirectDeclarator>
    *
    * <DirectDeclarator>:
-   *   <Identifier> <ArraySuffix>*
-   *   ( <TypeDeclarator> ) <ArraySuffix>*
+   *   <Identifier> <ArraySuffix>
+   *   ( <TypeDeclarator> ) <ArraySuffix>
+   * 
+   * <ArraySuffix>:
+   *   [ <Constant> ] <ArraySuffix>
+   *   [ <Constant> ]
    *
    * Entry: look -> first token of declarator ("*", "(", or identifier).
    * Exit:  look -> after the last token of the declarator.
@@ -278,7 +336,7 @@ class TypeDeclaration extends AstNode {
 
     /**
      * The base-type reference node.
-     * @type {TypeRefNode}
+     * @type {TypeRefNode|TypeDeriveNode}
      */
     this.baseType = void 0;
 
@@ -299,7 +357,7 @@ class TypeDeclaration extends AstNode {
    * Parse a complete type declaration.
    *
    * <TypeDeclaration>:
-   *   <Identifier> <TypeDeclarator>
+   *   <TypeDeriveNode> <TypeDeclarator>
    * 
    * Entry: look -> Identifier for the base type name.
    * Exit: look -> after the declarator (or after the type name if no
@@ -311,22 +369,20 @@ class TypeDeclaration extends AstNode {
    */
   syntax(P, E) {
     // Base type name.
-    if (!TypeRefNode.maybe(P, E))
+    if (!TypeDeriveNode.maybe(P, E))
       this.error(kBulitInExceptions.Unexpected, P.look);
     this.relocate(P.look);
 
-    this.baseType = TypeRefNode.parse(P, E)(P.look);
+    this.baseType = TypeDeriveNode.parse(P, E)(P.look);
     if (!this.baseType)
       this.error(kBulitInExceptions.InvalidType, P.look);
-
-    var base = new TypeRef(this.baseType.def);
 
     // Optional declarator.
     if (!TypeDeclarator.maybe(P, E))
       // Plain type reference - no pointers, arrays, or name.
-      this.typedef = base;
+      this.typedef = this.baseType.type;
 
-    this.decl = TypeDeclarator.parse(P, E, base)(P.look);
+    this.decl = TypeDeclarator.parse(P, E, this.baseType.type)(P.look);
     if (!this.decl)
       this.error(kBulitInExceptions.Unexpected, P.look);
 

@@ -3,6 +3,7 @@ const { kTokenReserved } = require("../../../lexer/token.js");
 const { Expression } = require("./expression.js");
 const { PrimaryExpression } = require("./primaryExpression.js");
 const { PointerTo } = require("../../type.js");
+const { Reference } = require("./reference.js");
 
 /**
  * Address-of expression - takes the address of an object.
@@ -50,6 +51,8 @@ class AddressExpression extends Expression {
       P.move();
 
       this.child = PrimaryExpression.parse(P, E)(P.look);
+      if (!(this.child instanceof Reference))
+        this.error(kBulitInExceptions.InvalidRef, this.child.ctx);
 
       // Result type is pointer to operand type.
       if (this.child.type)
