@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "sldl-utils": "^1.0.0",
+    "sldl-utils": "^1.1.0",
     "sldl-preprocessor": "^1.0.0"
   },
   "author": "That Sky Project",
