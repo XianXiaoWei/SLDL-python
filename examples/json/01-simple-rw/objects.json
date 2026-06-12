@@ -1,0 +1,49 @@
+{
+  "O$entrypoint": {
+    "$type": "OnLevelStart",
+    "autoStart": true,
+    "onlyOnWorldLoad": false,
+    "events": "P$main",
+    "skipOnWorldLoad": false
+  },
+  "O$main": {
+    "$type": "Clump<Object>",
+    "data": [
+      "P$spawnpoint"
+    ]
+  },
+  "O$_spawnpos": {
+    "$type": "Marker",
+    "enabled": true,
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1,
+      "w": 0
+    },
+    "quat": {
+      "i": 0,
+      "j": 0,
+      "k": 0,
+      "w": 1
+    },
+    "pos": {
+      "x": 0,
+      "y": 10,
+      "z": 0,
+      "w": 0
+    }
+  },
+  "O$spawnpoint": {
+    "$type": "AvatarSetPos",
+    "autoStart": false,
+    "randomGroundInMarker": false,
+    "setLevelStartPosition": true,
+    "onGround": false,
+    "relMarker": null,
+    "marker": "P$_spawnpos",
+    "breakHandHold": false,
+    "bstGuid": 11,
+    "killMomentum": false
+  }
+}

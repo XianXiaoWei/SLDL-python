@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "sldl-objects": "1.2.0",
+    "sldl-jsonify": "1.0.0"
+  }
+}

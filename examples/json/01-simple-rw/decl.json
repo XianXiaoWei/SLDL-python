@@ -1,0 +1,49 @@
+{
+  "S$Vector4": {
+    "$align": 16,
+    "x": "float",
+    "y": "float",
+    "z": "float",
+    "w": "float"
+  },
+  "S$Quat": {
+    "$align": 16,
+    "i": "float",
+    "j": "float",
+    "k": "float",
+    "w": "float"
+  },
+  "S$Matrix4": {
+    "$align": 16,
+    "row1": "Vector4",
+    "row2": "Vector4",
+    "row3": "Vector4",
+    "row4": "Vector4"
+  },
+  "C$Marker": {
+    "enabled": "bool",
+    "scale": "Vector4",
+    "quat": "Quat",
+    "pos": "Vector4"
+  },
+  "C$Event": {
+    "autoStart": "bool"
+  },
+  "C$OnLevelStart": {
+    "$parent": "Event",
+    "onlyOnWorldLoad": "bool",
+    "skipOnWorldLoad": "bool",
+    "events": "Clump<Object>*"
+  },
+  "C$AvatarSetPos": {
+    "$parent": "Event",
+    "randomGroundInMarker": "bool",
+    "setLevelStartPosition": "bool",
+    "onGround": "bool",
+    "relMarker": "Marker*",
+    "marker": "Marker*",
+    "breakHandHold": "bool",
+    "bstGuid": "uint32_t",
+    "killMomentum": "bool"
+  }
+}
