@@ -1,16 +1,17 @@
-const kMetaValueType = Object.freeze({
+var kMetaValueType = Object.freeze({
   None: 0,
   Number: 1,
   String: 2,
   Struct: 3,
   Class: 4,
   Pointer: 5,
+  Raw: 6,
 });
 
 /** General type definition. */
 class MetaType {
   /**
-   * @param {string} name 
+   * @param {string} name
    */
   constructor(name) {
     this.name = name;
@@ -50,9 +51,9 @@ class MetaType {
 
   /**
    * Read a LevelValue from the buffer.
-   * @param {LoIndices} L - Object file context.
-   * @param {Buffer} B - Original binary data.
-   * @param {number} off - Offset in the blob.
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {number} off
    * @returns {LevelValue}
    */
   read(L, B, off) {
@@ -61,10 +62,10 @@ class MetaType {
 
   /**
    * Write a LevelValue to the buffer.
-   * @param {LoIndices} L - Object file context.
-   * @param {Buffer} B - Original binary data.
-   * @param {LevelValue} val - Value to write.
-   * @param {number} off - Offset in the blob.
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValue} val
+   * @param {number} off
    * @returns {number} Number of bytes written.
    */
   write(L, B, val, off) {
@@ -75,8 +76,8 @@ class MetaType {
 /** A base class for metatype forwarding (e.g. member types). */
 class MetaTypeForward extends MetaType {
   /**
-   * @param {MetaType} def 
-   * @param {string} name 
+   * @param {MetaType} def
+   * @param {string} name
    */
   constructor(def, name) {
     super(name);

@@ -1,6 +1,5 @@
-const { Buffer } = require("sldl-utils");
-const { MetaType, kMetaValueType, kMetaTypes } = require("./metaType.js");
-const { LevelValueBool, LevelValueNumber } = require("../value/levelValueNumber.js");
+var { MetaType, kMetaValueType } = require("./metaType.js");
+var { LevelValueBool, LevelValueNumber } = require("../value/levelValueNumber.js");
 
 class MetaTypeBool extends MetaType {
   constructor(name) {
@@ -20,9 +19,9 @@ class MetaTypeBool extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {number} off 
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {number} off
    * @returns {LevelValueBool}
    */
   read(L, B, off) {
@@ -32,11 +31,11 @@ class MetaTypeBool extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {LevelValueBool} val 
-   * @param {number} off 
-   * @returns {number} Number of bytes written.
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValueBool} val
+   * @param {number} off
+   * @returns {number}
    */
   write(L, B, val, off) {
     if (val.def != this)
@@ -48,10 +47,10 @@ class MetaTypeBool extends MetaType {
 
 class MetaTypeNumber extends MetaType {
   /**
-   * @param {string} name 
-   * @param {number} size 
-   * @param {(off:number)=>any} reader 
-   * @param {(val:any, off:number)=>void} writer 
+   * @param {string} name
+   * @param {number} size
+   * @param {(off:number)=>any} reader
+   * @param {(val:any, off:number)=>void} writer
    */
   constructor(name, size, reader, writer) {
     super(name);
@@ -73,9 +72,9 @@ class MetaTypeNumber extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {number} off 
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {number} off
    * @returns {LevelValueNumber}
    */
   read(L, B, off) {
@@ -85,10 +84,10 @@ class MetaTypeNumber extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {LevelValueNumber} val 
-   * @param {number} off 
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValueNumber} val
+   * @param {number} off
    * @returns {number}
    */
   write(L, B, val, off) {

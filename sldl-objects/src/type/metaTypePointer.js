@@ -1,9 +1,9 @@
-const { MetaType, kMetaTypes, kMetaValueType } = require("./metaType.js");
-const { LevelValuePointer } = require("../value/levelValuePointer.js");
+var { MetaType, kMetaValueType } = require("./metaType.js");
+var { LevelValuePointer } = require("../value/levelValuePointer.js");
 
 class MetaTypePointer extends MetaType {
   /**
-   * @param {string} name 
+   * @param {string} name
    */
   constructor(name) {
     super(name);
@@ -22,26 +22,26 @@ class MetaTypePointer extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {number} off 
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {number} off
    * @returns {LevelValuePointer}
    */
   read(L, B, off) {
     var r = new LevelValuePointer(this);
-    r.setIndex(B.readUint32LE(off));
+    r.setIndex(B.readUInt32LE(off));
     return r;
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {LevelValuePointer} val 
-   * @param {number} off 
-   * @returns {number} Number of bytes written.
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValuePointer} val
+   * @param {number} off
+   * @returns {number}
    */
   write(L, B, val, off) {
-    B.writeUint32LE(val.index, off);
+    B.writeUInt32LE(val.index, off);
     return this.getSize();
   }
 }

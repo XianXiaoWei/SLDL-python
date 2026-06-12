@@ -6,7 +6,7 @@ class LevelValue {
   }
 
   /**
-   * Get the size of the value.
+   * Get the type definition.
    * @returns {MetaType}
    */
   getDef() {
@@ -31,7 +31,7 @@ class LevelValue {
 
   /**
    * Get the value.
-   * @returns {number}
+   * @returns {any}
    */
   getValue() {
     return this.value;
@@ -39,7 +39,7 @@ class LevelValue {
 
   /**
    * Set the value of the instance.
-   * @param {any} value 
+   * @param {any} value
    */
   setValue(value) {
     this.value = value;

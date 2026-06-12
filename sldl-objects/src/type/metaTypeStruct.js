@@ -1,11 +1,11 @@
-const { LevelValueStruct } = require("../value/levelValueStruct.js");
-const { MetaType, MetaTypeForward, kMetaValueType } = require("./metaType.js");
+var { LevelValueStruct } = require("../value/levelValueStruct.js");
+var { MetaType, MetaTypeForward, kMetaValueType } = require("./metaType.js");
 
 class MetaTypeStructMember extends MetaTypeForward {
   /**
-   * @param {MetaType} def 
-   * @param {string} name 
-   * @param {number} [count] 
+   * @param {MetaType} def
+   * @param {string} name
+   * @param {number} [count]
    */
   constructor(def, name, count) {
     super(def, name);
@@ -22,8 +22,8 @@ class MetaTypeStructMember extends MetaTypeForward {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
+   * @param {LoIndices} L
+   * @param {Buffer} B
    * @param {number} off - Offset of the struct.
    * @returns {LevelValue|LevelValue[]}
    */
@@ -39,9 +39,9 @@ class MetaTypeStructMember extends MetaTypeForward {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {LevelValue|LevelValue[]} val 
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValue|LevelValue[]} val
    * @param {number} off - Offset of the struct.
    * @returns {number}
    */
@@ -55,7 +55,7 @@ class MetaTypeStructMember extends MetaTypeForward {
 
     for (var i = 0; i < this.count; i++) {
       var v = val[i];
-      if (v.def != this)
+      if (v.def != this.def)
         return 0;
       if (!this.def.write(L, B, v, begin + i * this.getSize()))
         return 0;
@@ -89,13 +89,14 @@ class MetaTypeStruct extends MetaType {
   }
 
   /**
-   * @param {MetaType} def 
-   * @param {string} name 
+   * @param {MetaType} def
+   * @param {string} name
    * @param {number} [count]
    * @returns {boolean}
    */
   addMember(def, name, count) {
-    if (def.valueType() != kMetaValueType.Number && def.valueType() != kMetaValueType.Struct)
+    if (def.valueType() != kMetaValueType.Number
+      && def.valueType() != kMetaValueType.Struct)
       return false;
     if (this.members.has(name))
       return false;
@@ -121,28 +122,28 @@ class MetaTypeStruct extends MetaType {
   }
 
   /**
-   * Mark the struct as completed and force set the total alignment.
-   * @param {number} [align] 
-   * @returns {boolean} False if alignment value is invalid.
+   * Mark the struct as completed and optionally force alignment.
+   * @param {number} [align]
+   * @returns {boolean}
    */
   finalize(align) {
-    align |= 0;
-    if (align <= 0 || (align & (align - 1)))
-      return false;
-
-    this.align = align;
+    if (typeof align === "number") {
+      align |= 0;
+      if (align <= 0 || (align & (align - 1)))
+        return false;
+      this.align = align;
+    }
     this.size = this.cursor % this.align
       ? this.cursor - (this.cursor % this.align) + this.align
       : this.cursor;
-
     return true;
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {number} off 
-   * @returns {LevelValue}
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {number} off
+   * @returns {LevelValueStruct|undefined}
    */
   read(L, B, off) {
     if (off + this.getSize() > B.length)
@@ -158,11 +159,11 @@ class MetaTypeStruct extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {LevelValueStruct} val 
-   * @param {number} off 
-   * @returns {number} Number of bytes written.
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValueStruct} val
+   * @param {number} off
+   * @returns {number}
    */
   write(L, B, val, off) {
     if (val.def != this)

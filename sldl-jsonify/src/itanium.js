@@ -34,7 +34,6 @@ class StringReader {
   }
 
   readInteger() {
-    this.skipSeparator();
     if (!this.isNumber())
       return void 0;
 
@@ -48,7 +47,6 @@ class StringReader {
   }
 
   readString(length) {
-    this.skipSeparator();
     var r = "";
     while (length) {
       r += this.read();
@@ -79,7 +77,10 @@ class ItaniumResolver {
     r.resolve();
     if (r.pending.size)
       return void 0;
-    return [...r.names.values()];
+    return [...r.names.values()].filter(c => {
+      return c.valueType() == kMetaValueType.Class
+        || c.valueType() == kMetaValueType.Struct
+    });
   };
 
   constructor(s) {
@@ -88,6 +89,10 @@ class ItaniumResolver {
     this.pending = new Map();
     /** @type {Map<string, MetaType>} */
     this.names = new Map();
+
+    // Pre-register built-in class types.
+    this.names.set("Object", kMetaTypes.Object);
+    this.names.set("Clump", kMetaTypes.Clump);
   }
 
   err() {
@@ -108,16 +113,22 @@ class ItaniumResolver {
 
   /**
    * @param {MetaType} type 
+   * @param {string} name 
    */
-  backpatch(type) {
-    var a = this.pending.get(type.getName());
-    a && a.forEach(function (t) {
+  backpatch(type, name) {
+    var typename = name || type.getName()
+      , refs = this.pending.get(typename);
+    refs && refs.forEach(function (t) {
+      var base = type;
       // No struct pointer or struct pointer array.
-      if (type.valueType() != kMetaValueType.Class && isPointer)
-        throw kItaniumException.InvalidPointer.from(type.getName());
-      t.clazz.addMember(type, t.name, t.count == -1 ? void 0 : t.count);
+      if (base.valueType() != kMetaValueType.Class && t.isPointer)
+        throw kItaniumException.InvalidPointer.from(base.getName());
+      if (t.isPointer)
+        // TODO: Add type verification for the pointer.
+        base = kMetaTypes.Pointer;
+      t.clazz.addMember(base, t.name, t.count == -1 ? void 0 : t.count);
     });
-    this.pending.delete(type.getName());
+    this.pending.delete(typename);
   }
 
   resolve() {
@@ -131,6 +142,10 @@ class ItaniumResolver {
         // Parse class declaration.
         this.reader.read();
         seg = this.resolveClass();
+      } else if (this.reader.ch === 'D') {
+        this.reader.read();
+        this.resolveAlias();
+        continue;
       } else
         this.err();
 
@@ -138,13 +153,35 @@ class ItaniumResolver {
         // Parse end mark.
         this.err();
 
-      if (this.names.has(seg.getName()))
-        throw new Error("duplicated declaration: " + seg.getName());
-
-      // Save the result.
-      this.names.set(seg.getName(), seg);
-      this.backpatch(seg);
+      if (this.names.has(seg.getName())) {
+        // Merge members into existing type (e.g., adding to built-in Clump).
+        var existing = this.names.get(seg.getName());
+        if (existing instanceof MetaTypeClass && seg instanceof MetaTypeClass) {
+          for (var [mname, m] of seg.members)
+            if (!existing.getMember(mname))
+              existing.addMember(m.def, mname,
+                m.maxCount !== void 0 ? m.maxCount : void 0);
+          this.backpatch(existing);
+        } else {
+          throw new Error("duplicated declaration: " + seg.getName());
+        }
+      } else {
+        this.names.set(seg.getName(), seg);
+        this.backpatch(seg);
+      }
     }
+  }
+
+  resolveAlias() {
+    var name = this.lengthString()
+      , typeId = this.reader.read()
+      , type = kItaniumTypes[typeId];
+
+    if (!type)
+      this.err();
+
+    this.names.set(name, type);
+    this.backpatch(type, name);
   }
 
   resolveClass() {
@@ -155,7 +192,17 @@ class ItaniumResolver {
       // Parse member list start mark.
       this.err();
 
-    var result = new MetaTypeClass(name);
+    var parent = void 0;
+    if (this.reader.ch === 'F') {
+      // Parse parent class name.
+      this.reader.read();
+      var parentName = this.lengthString();
+      if (!this.names.has(parentName))
+        throw kItaniumException.UnrecognizedType.from(parentName);
+      parent = this.names.get(parentName);
+    }
+
+    var result = new MetaTypeClass(name, parent);
     while (!this.reader.done() && this.reader.ch !== 'E')
       // Parse member list.
       this.resolveClassMember(result);
@@ -228,7 +275,7 @@ class ItaniumResolver {
       align = this.reader.readInteger();
       if (!align)
         this.err();
-    } else if (reader.ch !== 'T')
+    } else if (this.reader.ch !== 'T')
       // Parse member list start mark.
       this.err();
 
@@ -275,7 +322,7 @@ class ItaniumResolver {
       // Parse struct type.
       typeId = this.lengthString();
       if (!this.names.has(typeId))
-        this.err();
+        throw kItaniumException.UnrecognizedType.from(typeId);
       type = this.names.get(typeId);
     } else {
       // Parse primitive type.
@@ -300,6 +347,68 @@ class ItaniumResolver {
 
     return s;
   }
+
+  /**
+   * Resolve and produce a JSON-compatible declaration group object
+   * that can be passed to DeclarationGroup or directly to LevelObjects.
+   * @returns {Object|undefined} Plain object with C$/S$/A$ keys, or
+   *   undefined if there are unresolved forward references.
+   */
+  resolveToDeclGroup() {
+    this.resolve();
+    if (this.pending.size)
+      return void 0;
+
+    var result = {};
+
+    for (var [name, type] of this.names) {
+      if (type instanceof MetaTypeClass) {
+        var classObj = {};
+        if (type.parent && type.parent.getName() !== "Object")
+          classObj.$parent = type.parent.getName();
+
+        for (var [memberName, member] of type.members) {
+          classObj[memberName] = itaniumMemberToString(member);
+        }
+
+        result["C$" + name] = classObj;
+      } else if (type instanceof MetaTypeStruct) {
+        var structObj = {};
+        for (var [memberName, member] of type.members)
+          structObj[memberName] = itaniumMemberToString(member);
+
+        result["S$" + name] = structObj;
+      } else {
+        // Alias (MetaTypeForward or primitive alias).
+        result["A$" + name] = type.getName();
+      }
+    }
+
+    return result;
+  }
+}
+
+/**
+ * Convert a MetaTypeClassMember to its string representation.
+ */
+function itaniumMemberToString(member) {
+  var { MetaTypeClassMemberArray, kMetaValueType } = require("sldl-objects");
+  var typeName = member.def.getName();
+
+  if (member instanceof MetaTypeClassMemberArray) {
+    var suffix = member.maxCount
+      ? "[" + member.maxCount + "]"
+      : "[]";
+
+    if (member.valueType() === kMetaValueType.Pointer)
+      return typeName + " *" + suffix;
+    return typeName + " " + suffix;
+  }
+
+  if (member.valueType() === kMetaValueType.Pointer)
+    return "Object *";
+
+  return typeName;
 }
 
 module.exports = {

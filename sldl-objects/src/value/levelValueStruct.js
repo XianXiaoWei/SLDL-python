@@ -1,4 +1,4 @@
-const { LevelValue } = require("./levelValue.js");
+var { LevelValue } = require("./levelValue.js");
 
 class LevelValueStruct extends LevelValue {
   constructor(def) {
@@ -8,7 +8,7 @@ class LevelValueStruct extends LevelValue {
   }
 
   /**
-   * @param {string} name 
+   * @param {string} name
    * @returns {LevelValue|LevelValue[]|undefined}
    */
   getValue(name) {
@@ -16,8 +16,8 @@ class LevelValueStruct extends LevelValue {
   }
 
   /**
-   * @param {string} name 
-   * @param {LevelValue|LevelValue[]} value 
+   * @param {string} name
+   * @param {LevelValue|LevelValue[]} value
    */
   setValue(name, value) {
     this.value.set(name, value);

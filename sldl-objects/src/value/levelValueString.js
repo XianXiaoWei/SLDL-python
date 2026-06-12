@@ -1,5 +1,5 @@
-const { Buffer } = require("sldl-utils");
-const { LevelValue } = require("./levelValue.js");
+var { Buffer } = require("buffer");
+var { LevelValue } = require("./levelValue.js");
 
 class LevelValueString extends LevelValue {
   constructor(def) {

@@ -1,5 +1,6 @@
-const { MetaType, kMetaValueType } = require("./metaType.js");
-const { LevelValueString } = require("../value/levelValueString.js");
+var { Buffer } = require("buffer");
+var { MetaType, kMetaValueType } = require("./metaType.js");
+var { LevelValueString } = require("../value/levelValueString.js");
 
 class MetaTypeString extends MetaType {
   constructor(name) {
@@ -11,10 +12,10 @@ class MetaTypeString extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {number} off 
-   * @returns {LevelValueBool}
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {number} off
+   * @returns {LevelValueString}
    */
   read(L, B, off) {
     var r = new LevelValueString(this);
@@ -23,11 +24,11 @@ class MetaTypeString extends MetaType {
   }
 
   /**
-   * @param {LoIndices} L 
-   * @param {Buffer} B 
-   * @param {LevelValueBool} val 
-   * @param {number} off 
-   * @returns {number} Number of bytes written.
+   * @param {LoIndices} L
+   * @param {Buffer} B
+   * @param {LevelValueString} val
+   * @param {number} off
+   * @returns {number}
    */
   write(L, B, val, off) {
     if (val.def != this)

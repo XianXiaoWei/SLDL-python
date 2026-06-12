@@ -1,16 +1,41 @@
-const { Buffer } = require("sldl-utils");
-const { kObjectExceptions } = require("./exceptions.js");
-const { kMetaTypes } = require("./types.js");
-const { kMetaValueType, MetaType } = require("./type/metaType.js");
-const { MetaTypeClassMemberArray, MetaTypeClassMember, MetaTypeClass } = require("./type/metaTypeClass.js");
-const { MetaTypePointer } = require("./type/metaTypePointer.js");
+var { Buffer } = require("buffer");
+var { kObjectExceptions } = require("./exceptions.js");
+var { kMetaTypes } = require("./types.js");
+var { kMetaValueType, MetaType } = require("./type/metaType.js");
+var { MetaTypeClass } = require("./type/metaTypeClass.js");
+var { MetaTypePointer } = require("./type/metaTypePointer.js");
+var { MetaTypeRaw } = require("./type/metaTypeRaw.js");
+var { LevelValueClass } = require("./value/levelValueClass.js");
+var { LevelValuePointer } = require("./value/levelValuePointer.js");
 
-const kMemvarTypes = Object.freeze({
+// Install natively missing helpers on Buffer.
+if (typeof Buffer.prototype.readStringZero !== "function") {
+  Buffer.prototype.readStringZero = function (offset, encoding) {
+    offset >>>= 0;
+    if (offset >= this.length) return "";
+    var begin = offset, end = begin;
+    while (end < this.length && this[end]) end++;
+    return begin < end ? this.toString(encoding, begin, end) : "";
+  };
+}
+if (typeof Buffer.prototype.writeStringZero !== "function") {
+  Buffer.prototype.writeStringZero = function (string, offset, encoding) {
+    var bytes = Buffer.from(string);
+    offset >>>= 0;
+    this.set(bytes, offset);
+  };
+}
+
+// --- Memvar Types ------------------------------------------------------------
+
+var kMemvarTypes = Object.freeze({
   Raw: 0,
   String: 1,
   Ref: 2,
   Array: 3
 });
+
+// --- LoHeader ----------------------------------------------------------------
 
 class LoHeader {
   constructor() {
@@ -41,14 +66,12 @@ class LoHeader {
     this.fileSize = 0;
   }
 
-  /**
-   * @param {Buffer} B 
-   * @returns {this}
-   */
   read(B) {
     var magic = B.slice(0, 4).toString("ascii");
     if (magic !== "TGCL")
-      throw new Error(`invalid magic: 0x${B.readUInt32LE(0).toString(16).padStart(8, "0")}, expected "TGCL"`);
+      throw new Error("invalid magic: 0x"
+        + B.readUInt32LE(0).toString(16).padStart(8, "0")
+        + ", expected \"TGCL\"");
 
     this.version = B.readUInt32LE(4);
     this.numClasses = B.readUInt32LE(8);
@@ -64,12 +87,8 @@ class LoHeader {
     return this;
   }
 
-  /**
-   * @returns {Buffer}
-   */
   write() {
     var r = Buffer.allocUnsafe(44);
-
     r.write(this.magic, 0, 4, "ascii");
     r.writeUInt32LE(this.version, 4);
     r.writeUInt32LE(this.numClasses, 8);
@@ -81,17 +100,13 @@ class LoHeader {
     r.writeUInt32LE(this.stringsOffset, 32);
     r.writeUInt32LE(this.objectsOffset, 36);
     r.writeUInt32LE(this.fileSize, 40);
-
     return r;
   }
 }
 
+// --- LoStringPool ------------------------------------------------------------
+
 class LoStringPool {
-  /**
-   * @param {Buffer} B 
-   * @param {number} offset 
-   * @returns {string}
-   */
   static read(B, offset) {
     return B.readStringZero(offset);
   }
@@ -99,23 +114,15 @@ class LoStringPool {
   constructor() {
     this.cursor = 0;
     this.buffer = Buffer.allocUnsafe(128);
-    /** @type {Map<string, number>} */
     this.strings = new Map();
   }
 
-  /**
-   * Reset the string pool.
-   */
   initialize() {
     this.cursor = 0;
     this.buffer = Buffer.allocUnsafe(128);
     this.strings.clear();
   }
 
-  /**
-   * @param {string} s 
-   * @returns {number}
-   */
   set(s) {
     if (typeof s !== "string")
       return -1;
@@ -133,17 +140,17 @@ class LoStringPool {
     var r = this.cursor;
     this.buffer.set(bytes, r);
     this.cursor += bytes.byteLength;
+    this.strings.set(s, r);
 
     return r;
   }
 
-  /**
-   * @returns {Buffer}
-   */
   write() {
     return Buffer.from(this.buffer.subarray(0, this.cursor));
   }
 }
+
+// --- LoMemvar ----------------------------------------------------------------
 
 class LoMemvar {
   constructor(type, name, size, aux) {
@@ -154,11 +161,14 @@ class LoMemvar {
   }
 }
 
+// --- LoClass -----------------------------------------------------------------
+
 class LoClass {
   constructor(name) {
     this.name = name;
     this.raw = new Map();
     this.def = void 0;
+    this.firstMemvar = 0;
   }
 
   addMemvar(memvar) {
@@ -166,87 +176,34 @@ class LoClass {
   }
 
   setDef(def) {
-    function verifyMemvar(raw, def) {
-      if (!(def instanceof MetaTypeClassMember))
-        return false;
-
-      if (raw.type == kMemvarTypes.Raw) {
-        if (def.valueType() != kMetaValueType.Struct && def.valueType() != kMetaValueType.Number)
-          return false;
-      } else if (raw.type == kMemvarTypes.String) {
-        if (def.valueType() != kMetaValueType.String)
-          return false;
-      } else if (raw.type == kMemvarTypes.Array) {
-        if (!(def instanceof MetaTypeClassMemberArray))
-          return false;
-      } else if (raw.type == kMemvarTypes.Ref) {
-        if (!(def.def instanceof MetaTypePointer))
-          return false;
-      } else
-        return false;
-
-      return true;
-    }
-
     this.def = def;
-
-    var count = 0;
-    for (var kv of this.raw) {
-      var m = def.members.get(kv[0]);
-
-      if (!m || !verifyMemvar(kv[1], m))
-        throw kObjectExceptions.MemberMismatch.from(this.name, kv[1].name);
-
-      count++;
-    }
-
-    if (count != def.members.size)
-      throw kObjectExceptions.MemberMismatch.from(this.name);
   }
 }
 
+// --- LoIndices ---------------------------------------------------------------
+
 class LoIndices {
   constructor() {
-    // - Blob variables.
-
-    /** @type {LoClass[]} */
     this.classes = [];
-    /** @type {LoMemvar[]} */
     this.memvars = [];
-    /** @type {LevelValueClass[]} */
     this.objects = [];
-    /** @type {LevelValuePointer[]} */
     this.pointers = [];
 
-    // - JS variables.
-
-    /** @type {Map<string, MetaType>} */
     this.metaTypes = new Map();
-    /** @type {Map<string, MetaTypeClass>} */
     this.metaClasses = new Map();
-    /** @type {Map<string, number>} */
     this.classIndices = new Map();
-    /** @type {Map<string, number>} */
     this.objectIndices = new Map();
   }
 
-  /**
-   * Clear context for the next operation.
-   */
   clear() {
     this.classes = [];
     this.memvars = [];
     this.objects = [];
     this.pointers = [];
-
     this.classIndices.clear();
     this.objectIndices.clear();
   }
 
-  /**
-   * Register MetaType definitions for lookup.
-   * @param {MetaType[]} definitions
-   */
   define(definitions) {
     this.metaTypes.clear();
     this.metaClasses.clear();
@@ -257,41 +214,17 @@ class LoIndices {
     }
   }
 
-  /**
-   * Rebuild internal lookup maps after all classes and objects have been added.
-   */
-  finalize() {
-    var classes = new Map();
-    for (var c of this.classes)
-      classes.set(c.name, c);
-  }
-
-  /**
-   * Get a MetaType by name from the registered definitions.
-   * @param {string} name
-   * @returns {MetaType|undefined}
-   */
   getClassFromName(name) {
     return this.metaTypes.get(name);
   }
 
-  /**
-   * Get the index of a class by name.
-   * @param {string} name
-   * @returns {number}
-   */
   getClassIdx(name) {
     var idx = this.classIndices.get(name);
-    if (idx === undefined)
-      throw kObjectExceptions.InvalidClassName.from(name);
+    if (typeof idx === "undefined")
+      return -1;
     return idx;
   }
 
-  /**
-   * Get the index of an object by name.
-   * @param {string} name
-   * @returns {number}
-   */
   getObjectIdx(name) {
     var idx = this.objectIndices.get(name);
     if (idx === undefined)
@@ -299,27 +232,12 @@ class LoIndices {
     return idx;
   }
 
-  /**
-   * Add a memvar.
-   * @param {number} type 
-   * @param {number} name 
-   * @param {number} size 
-   * @param {number} aux 
-   * @returns {LoMemvar}
-   */
   addMemvarFromBlob(type, name, size, aux) {
     var m = new LoMemvar(type, name, size, aux);
     this.memvars.push(m);
     return m;
   }
 
-  /**
-   * Add a class.
-   * @param {number} name 
-   * @param {number} firstMemvar 
-   * @param {number} numMemvars 
-   * @returns {LoClass}
-   */
   addClassFromBlob(name, firstMemvar, numMemvars) {
     var c = new LoClass(name);
     for (var i = 0; i < numMemvars; i++) {
@@ -334,58 +252,66 @@ class LoIndices {
 
     this.classIndices.set(name, this.classes.length);
     this.classes.push(c);
-
     return c;
   }
 
-  /**
-   * @param {LevelValueClass} obj 
-   * @returns {LevelValueClass}
-   */
   addObject(obj) {
     var name = obj.getName();
-
     if (this.objectIndices.has(name))
       throw kObjectExceptions.MultipleObjectName.from(name);
 
     this.objectIndices.set(obj.getName(), this.objects.length);
     this.objects.push(obj);
-
     return obj;
   }
 
-  /**
-   * Add a class from a MetaTypeClass definition.
-   * Creates LoMemvar entries for each member.
-   * @param {MetaTypeClass} def
-   * @returns {LoClass}
-   */
-  addClassFromDef(def) {
+  addClassFromDef(def, usedMembers) {
     var name = def.getName();
 
     if (this.classIndices.has(name))
-      throw kObjectExceptions.MultipleClassName.from(name);
+      return this.classes[this.classIndices.get(name)];
 
     this.classIndices.set(name, this.classes.length);
 
     var c = new LoClass(name);
-    for (var [memberName, member] of def.members) {
-      var type, size, aux;
+    this.classes.push(c);
+
+    var MetaTypeClassMemberArray = require("./type/metaTypeClass.js").MetaTypeClassMemberArray;
+
+    for (var [memberName, member] of def.allMembers(usedMembers)) {
+      if (member instanceof MetaTypeClassMemberArray
+        && member.def instanceof MetaTypeClass) {
+        this.addClassFromDef(member.def, void 0);
+      }
+    }
+
+    var memberList = def.allMembers(usedMembers);
+    for (var i = 0; i < memberList.length; i++) {
+      var memberName = memberList[i][0]
+        , member = memberList[i][1]
+        , type, size, aux;
 
       if (member instanceof MetaTypeClassMemberArray) {
         type = kMemvarTypes.Array;
-        size = member.def.getSize();
-        aux = member.maxCount;
+        if (member.def instanceof MetaTypeClass) {
+          size = 0;
+          aux = this.classIndices.get(member.def.getName());
+        } else if (member.valueType() == kMetaValueType.Pointer) {
+          size = member.getSize ? member.getSize() : 4;
+          aux = 0xFFFFFFFF;
+        } else {
+          size = member.def.getSize();
+          aux = member.maxCount;
+        }
       } else if (member.valueType() == kMetaValueType.Pointer) {
         type = kMemvarTypes.Ref;
-        size = member.getSize();
+        size = 0;
         aux = 0;
       } else if (member.valueType() == kMetaValueType.String) {
         type = kMemvarTypes.String;
-        size = member.getSize();
+        size = 0;
         aux = 0;
       } else {
-        // Number, Struct, or Bool.
         type = kMemvarTypes.Raw;
         size = member.getSize();
         aux = 0;
@@ -396,32 +322,46 @@ class LoIndices {
       c.addMemvar(m);
     }
 
-    this.classes.push(c);
     this.metaClasses.set(name, def);
-
     return c;
   }
 }
 
+// --- LevelObjects ------------------------------------------------------------
+
 class LevelObjects {
   /**
-   * @param {MetaType[]} definitions 
+   * @param {MetaType[]} definitions - MetaType definitions (from
+   *   ItaniumResolver or DeclarationGroup).
    */
   constructor(definitions) {
-    /** @type {Map<string, MetaType>} */
-    this.definitions = new Map();
+    this.indices = new LoIndices();
 
-    this.header = new LoHeader();
-    this.strings = new LoStringPool();
+    var defs = [];
+    for (var i = 0; i < definitions.length; i++)
+      defs.push(definitions[i]);
+    // Ensure built-in types are included.
+    for (var key of Object.keys(kMetaTypes))
+      defs.push(kMetaTypes[key]);
+
+    this.indices.define(defs);
+
+    // Register all class definitions in LoIndices.
+    for (var j = 0; j < definitions.length; j++) {
+      var def = definitions[j];
+      if (def instanceof MetaTypeClass)
+        this.indices.addClassFromDef(def, void 0);
+    }
+
     /** @type {Map<string, LevelValueClass>} */
     this.objects = new Map();
-
-    this.define(definitions);
+    /** @type {Set<string>} Per-class set of used member names for pruning. */
+    this.usedMembers = new Map();
   }
 
   /**
-   * Get an object.
-   * @param {string} name 
+   * Get an object by name.
+   * @param {string} name
    * @returns {LevelValueClass|undefined}
    */
   get(name) {
@@ -429,269 +369,369 @@ class LevelObjects {
   }
 
   /**
-   * Set an object.
-   * @param {LevelValueClass} object
+   * Store an object, tracking member usage for pruning.
+   * @param {LevelValueClass} obj
    */
-  set(object) {
-    this.objects.set(object.name, object);
+  set(obj) {
+    var name = obj.getName();
+    this.objects.set(name, obj);
+
+    var className = obj.getDef().getName();
+    if (!this.usedMembers.has(className))
+      this.usedMembers.set(className, new Set());
+    var usedSet = this.usedMembers.get(className);
+    for (var [memberName, val] of obj.value)
+      usedSet.add(memberName);
   }
 
   /**
-   * Recalculate the association between names and references.
+   * Read a TGCL binary buffer. Objects are stored internally and
+   * also returned.
+   * @param {Buffer} buffer
+   * @returns {Map<string, LevelValueClass>}
    */
-  finalize() {
-    // Update classes.
-    var classes = new Map();
-    for (var def of this.definitions.values())
-      classes.set(def.name, def);
-    this.definitions = classes;
+  readBinary(buffer) {
+    var header = new LoHeader().read(buffer);
+    var L = this.indices;
 
-    // Update objects.
-    var objects = new Map();
-    for (var obj of this.objects.values())
-      objects.set(obj.name, obj);
-    this.objects = objects;
-  }
+    L.clear();
+    L.define(Array.from(L.metaTypes.values()));
 
-  /**
-   * Set the type definition list.
-   * @param {MetaType[]} definitions 
-   */
-  define(definitions) {
-    this.definitions.clear();
-    // Arrange the built-in types at the end of the array to ensure they are
-    // not overwritten.
-    definitions = definitions.concat([...Object.values(kMetaTypes)]);
-    for (var def of definitions)
-      this.definitions.set(def.name, def);
-  }
-
-  /**
-   * @param {Buffer} B 
-   * @returns {boolean}
-   */
-  read(B) {
-    this.header.read(B);
-
-    var indices = new LoIndices();
-
-    // Read member variable defs from the buffer.
-    for (var i = 0; i < this.header.numMemVars; i++) {
-      var off = this.header.memvarsOffset + i * 16;
-      indices.addMemvarFromBlob(
-        // Memvar type, onk of kMemvarTypes.
-        B.readUInt32LE(off),
-        // Memvar name.
-        this.readDataString(B, B.readUInt32LE(off + 4)),
-        // Memvar size.
-        B.readUInt32LE(off + 8),
-        // Memvar aux value (for array).
-        B.readUInt32LE(off + 12)
+    // Read memvars from binary.
+    for (var i = 0; i < header.numMemVars; i++) {
+      var off = header.memvarsOffset + i * 16;
+      L.addMemvarFromBlob(
+        buffer.readUInt32LE(off),
+        LoStringPool.read(buffer, header.stringsOffset + buffer.readUInt32LE(off + 4)),
+        buffer.readUInt32LE(off + 8),
+        buffer.readUInt32LE(off + 12)
       );
     }
 
-    // Read raw classes from the buffer.
-    for (var i = 0; i < this.header.numClasses; i++) {
-      var off = this.header.classesOffset + i * 12;
-
-      // Add a class.
-      indices.addClassFromBlob(
-        // Name.
-        this.readDataString(B, B.readUInt32LE(off)),
-        // First memvar index.
-        B.readUInt32LE(off + 4),
-        // Memvar count.
-        B.readUInt32LE(off + 8)
+    // Read classes from binary.
+    for (var i = 0; i < header.numClasses; i++) {
+      var off = header.classesOffset + i * 12;
+      L.addClassFromBlob(
+        LoStringPool.read(buffer, header.stringsOffset + buffer.readUInt32LE(off)),
+        buffer.readUInt32LE(off + 4),
+        buffer.readUInt32LE(off + 8)
       );
     }
 
-    // Lookup definition and set.
-    for (var c of indices.classes) {
-      // The object reader uses the memvar order from indices.memvars, instead of
-      // the definition.
-      var def = this.definitions.get(c.name);
-      if (!def)
-        throw kObjectExceptions.InvalidClassName.from(c.name);
+    // Match binary classes to registered definitions.
+    for (var j = 0; j < L.classes.length; j++) {
+      var c = L.classes[j];
+      var def = L.metaClasses.get(c.name);
 
-      c.setDef(def, indices);
+      if (!def) {
+        // Auto-create unknown class.
+        def = new MetaTypeClass(c.name, kMetaTypes.Object);
+        def.isAutoCreated = true;
+
+        for (var [memName, memvar] of c.raw) {
+          if (memvar.type === kMemvarTypes.Raw)
+            def.addMember(new MetaTypeRaw(c.name + "::" + memName, memvar.size || 4), memName);
+          else if (memvar.type === kMemvarTypes.String)
+            def.addMember(kMetaTypes.CString, memName);
+          else if (memvar.type === kMemvarTypes.Ref)
+            def.addMember(kMetaTypes.Pointer, memName);
+          else if (memvar.type === kMemvarTypes.Array) {
+            if (memvar.aux === 0xFFFFFFFF)
+              def.addMember(kMetaTypes.Pointer, memName, 0);
+            else if (memvar.aux >= 0 && memvar.aux < L.classes.length
+              && L.classes[memvar.aux].def) {
+              var elemDef = L.classes[memvar.aux].def;
+              def.addMember(elemDef, memName, 0);
+            } else
+              def.addMember(kMetaTypes.Pointer, memName, 0);
+          } else
+            def.addMember(new MetaTypeRaw(c.name + "::" + memName, memvar.size || 4), memName);
+        }
+
+        L.metaClasses.set(c.name, def);
+        L.metaTypes.set(c.name, def);
+      } else {
+        // Check for unknown members.
+        for (var [memName, memvar] of c.raw) {
+          if (!def.getMember(memName)) {
+            if (memvar.type === kMemvarTypes.Raw)
+              def.addMember(new MetaTypeRaw(c.name + "::" + memName, memvar.size || 4), memName);
+            else if (memvar.type === kMemvarTypes.String)
+              def.addMember(kMetaTypes.CString, memName);
+            else if (memvar.type === kMemvarTypes.Ref)
+              def.addMember(kMetaTypes.Pointer, memName);
+            else if (memvar.type === kMemvarTypes.Array) {
+              if (memvar.aux === 0xFFFFFFFF)
+                def.addMember(kMetaTypes.Pointer, memName, 0);
+              else if (memvar.aux >= 0 && memvar.aux < L.classes.length
+                && L.classes[memvar.aux].def) {
+                var elemDef2 = L.classes[memvar.aux].def;
+                def.addMember(elemDef2, memName, 0);
+              } else
+                def.addMember(kMetaTypes.Pointer, memName, 0);
+            } else
+              def.addMember(new MetaTypeRaw(c.name + "::" + memName, 4), memName);
+          }
+        }
+      }
+
+      c.setDef(def);
     }
 
     // Read objects.
-    var cursor = this.header.objectsOffset;
-    for (var i = 0; i < this.header.numObjects && cursor < this.header.fileSize; i++) {
-      var obj = kMetaTypes.Object.read(indices, B, cursor)
-        , name = obj?.name;
+    var cursor = header.objectsOffset;
+    for (var k = 0; k < header.numObjects && cursor < header.fileSize; k++) {
+      var classIdx = buffer.readUInt32LE(cursor)
+        , name = buffer.readStringZero(cursor + 4);
+      if (classIdx >= L.classes.length || classIdx < 0)
+        throw kObjectExceptions.InvalidClassIndex.from(classIdx);
+
+      cursor += 4 + Buffer.from(name).length + 1;
+
+      var raw = L.classes[classIdx];
+      if (!raw)
+        throw kObjectExceptions.InvalidClassIndex.from(classIdx);
+
+      var objDef = raw.def;
+      var obj, objSize;
+
+      if (objDef && objDef.isAutoCreated) {
+        var rawResult = readRawMembers(L, buffer, cursor, raw, objDef, name);
+        obj = rawResult.obj;
+        objSize = rawResult.size;
+      } else {
+        obj = objDef.read(L, buffer, cursor, raw);
+        objSize = obj.getSize();
+      }
 
       if (!obj || typeof name !== "string")
         throw kObjectExceptions.ReadObjectFailed.from();
 
-      if (this.objects.has(name))
-        throw kObjectExceptions.MultipleObjectName.from(obj.name);
+      obj.name = name;
+      L.objects.push(obj);
+      this.set(obj);
 
-      indices.objects.push(obj);
-      this.objects.set(name, obj);
-
-      cursor += obj.getSize();
+      cursor += objSize;
     }
 
-    // Backpatch object pointers.
-    for (var p of indices.pointers)
-      p.backpatch(indices);
+    // Backpatch pointers.
+    for (var pi = 0; pi < L.pointers.length; pi++)
+      L.pointers[pi].backpatch(L);
+
+    // Reset indices for write use.
+    L.clear();
+    var defs = [];
+    for (var [dname, d] of L.metaTypes)
+      defs.push(d);
+    L.define(defs);
+
+    return this.objects;
   }
 
   /**
-   * Serialize all objects to a TGCL binary buffer.
+   * Serialize stored objects to a TGCL binary buffer.
+   * @param {Set<string>} [usedMembers] - per-class member usage for pruning.
    * @returns {Buffer}
    */
-  write() {
-    this.finalize();
+  writeBinary(usedMembers) {
+    var L = this.indices;
+    var strings = new LoStringPool();
 
-    // Reset string pool.
-    this.strings.initialize();
+    var um = usedMembers || this.usedMembers;
 
-    var indices = new LoIndices();
-    indices.define([...this.definitions.values()]);
+    // Register classes with pruning.
+    for (var [className, classDef] of L.metaClasses) {
+      var memberSet = um.get(className);
+      L.addClassFromDef(classDef, memberSet);
+    }
 
-    // Register classes used by objects and collect pointers.
-    for (var obj of this.objects.values()) {
-      var def = obj.getDef()
-        , defName = def.getName();
+    // Register objects.
+    for (var [name, obj] of this.objects)
+      L.addObject(obj);
 
-      // All LevelValueClass defs must be registered in this.definitions,
-      // and the def obtained from the object must match the registered one.
-      var registeredDef = this.definitions.get(defName);
-      if (!registeredDef || registeredDef !== def)
-        throw kObjectExceptions.InvalidClassName.from(defName);
-
-      if (!indices.classIndices.has(defName))
-        indices.addClassFromDef(def);
-
-      indices.addObject(obj);
-
-      // Collect pointer members for front-patching.
-      for (var [name, val] of obj.value) {
-        var member = def.members.get(name);
-        if (!member || member.valueType() != kMetaValueType.Pointer)
+    // Collect and resolve pointers (separate pass for forward refs).
+    for (var [name, obj] of this.objects) {
+      for (var [mname, mval] of obj.value) {
+        var memb = obj.getDef().getMember(mname);
+        if (!memb || memb.valueType() !== kMetaValueType.Pointer)
           continue;
 
-        var ptrs = Array.isArray(val) ? val : [val];
+        var ptrs = Array.isArray(mval) ? mval : [mval];
         for (var pi = 0; pi < ptrs.length; pi++) {
-          var p = ptrs[pi]
-            , target = p.getValue();
-          if (!target || typeof target !== "object") {
-            indices.pointers.push(p);
+          var p = ptrs[pi];
+          if (!(p instanceof LevelValuePointer))
             continue;
+          if (p.targetName !== null && p.targetName !== void 0) {
+            var targetIdx = L.objectIndices.get(p.targetName);
+            if (targetIdx === void 0)
+              throw kObjectExceptions.UnresolvedObjectReference.from(p.targetName);
+            p.setIndex(targetIdx);
           }
-
-          var targetName = target.getName()
-            , targetObj = this.objects.get(targetName);
-          // All referenced LevelValueClass must be in this.objects.
-          if (!targetObj)
-            throw kObjectExceptions.InvalidObjectName.from(targetName);
-          // Duplicate names with different references are not allowed.
-          if (targetObj !== target)
-            throw kObjectExceptions.MultipleObjectName.from(targetName);
-
-          indices.pointers.push(p);
+          L.pointers.push(p);
         }
       }
     }
 
-    // Front-patch pointers: resolve object references to indices.
-    for (var p of indices.pointers) {
-      var target = p.getValue();
-      if (target && typeof target === "object") {
-        var idx = indices.objectIndices.get(target.getName());
-        if (typeof idx === "undefined")
-          throw kObjectExceptions.InvalidObjectName.from(target.getName());
-        p.setIndex(idx);
-      } else {
-        p.setIndex(0xFFFFFFFF);
-      }
-    }
-
-    // Write memvar buffer (16 bytes each).
-    var memvarBuf = Buffer.allocUnsafe(indices.memvars.length * 16);
-    for (var i = 0; i < indices.memvars.length; i++) {
-      var m = indices.memvars[i]
-        , mOff = i * 16;
+    // Write sections.
+    var memvarBuf = Buffer.allocUnsafe(L.memvars.length * 16);
+    for (var mi = 0; mi < L.memvars.length; mi++) {
+      var m = L.memvars[mi]
+        , mOff = mi * 16;
       memvarBuf.writeUInt32LE(m.type, mOff);
-      memvarBuf.writeUInt32LE(this.strings.set(m.name), mOff + 4);
+      memvarBuf.writeUInt32LE(strings.set(m.name), mOff + 4);
       memvarBuf.writeUInt32LE(m.size, mOff + 8);
       memvarBuf.writeUInt32LE(m.aux, mOff + 12);
     }
 
-    // Write class buffer (12 bytes each).
-    var classBuf = Buffer.allocUnsafe(indices.classes.length * 12);
-    for (var i = 0; i < indices.classes.length; i++) {
-      var c = indices.classes[i]
-        , cOff = i * 12;
-      classBuf.writeUInt32LE(this.strings.set(c.name), cOff);
-
-      // Calculate first memvar index for this class.
-      var firstMemvar = 0;
-      for (var j = 0; j < i; j++)
-        firstMemvar += indices.classes[j].raw.size;
-      classBuf.writeUInt32LE(firstMemvar, cOff + 4);
-      classBuf.writeUInt32LE(c.raw.size, cOff + 8);
+    var classBuf = Buffer.allocUnsafe(L.classes.length * 12);
+    var firstMemvarAcc = 0;
+    for (var ci = 0; ci < L.classes.length; ci++) {
+      var cc = L.classes[ci]
+        , cOff = ci * 12;
+      classBuf.writeUInt32LE(strings.set(cc.name), cOff);
+      classBuf.writeUInt32LE(firstMemvarAcc, cOff + 4);
+      classBuf.writeUInt32LE(cc.raw.size, cOff + 8);
+      firstMemvarAcc += cc.raw.size;
     }
 
-    // Write string pool.
-    var stringBuf = this.strings.write();
+    var stringBuf = strings.write();
 
-    // Write objects.
     var totalObjSize = 0;
-    for (var obj of indices.objects)
-      totalObjSize += obj.getSize();
+    for (var oi = 0; oi < L.objects.length; oi++) {
+      var o = L.objects[oi];
+      totalObjSize += 4 + Buffer.from(o.getName()).length + 1 + o.getSize();
+    }
 
     var objBuf = Buffer.allocUnsafe(totalObjSize)
-      , cursor = 0;
-    for (var obj of indices.objects) {
-      var n = obj.getDef().write(indices, objBuf, obj, cursor);
+      , objCursor = 0;
+    for (var oi = 0; oi < L.objects.length; oi++) {
+      var o = L.objects[oi];
+      var cIdx = L.getClassIdx(o.getDef().getName());
+      if (cIdx === -1)
+        throw kObjectExceptions.InvalidClassName.from(o.getDef().getName());
+
+      objBuf.writeUInt32LE(cIdx, objCursor);
+      objCursor += 4;
+
+      var nameBuf = Buffer.from(o.getName() + "\0");
+      nameBuf.copy(objBuf, objCursor);
+      objCursor += nameBuf.length;
+
+      var um2 = um.get(o.getDef().getName());
+      var n = o.getDef().write(L, objBuf, o, objCursor, um2);
       if (!n)
         throw kObjectExceptions.ReadObjectFailed.from();
-      cursor += n;
+      objCursor += n;
     }
 
-    // Calculate offsets.
     var headerSize = 44
       , classesOffset = headerSize
       , memvarsOffset = classesOffset + classBuf.length
       , stringsOffset = memvarsOffset + memvarBuf.length
       , objectsOffset = stringsOffset + stringBuf.length
-      , fileSize = objectsOffset + cursor;
+      , fileSize = objectsOffset + objCursor;
 
-    // Prepare header.
-    this.header.initialize();
-    this.header.numClasses = indices.classes.length;
-    this.header.numMemVars = indices.memvars.length;
-    this.header.numObjects = indices.objects.length;
-    this.header.numRefs = indices.pointers.length;
-    this.header.classesOffset = classesOffset;
-    this.header.memvarsOffset = memvarsOffset;
-    this.header.stringsOffset = stringsOffset;
-    this.header.objectsOffset = objectsOffset;
-    this.header.fileSize = fileSize;
+    var header = new LoHeader();
+    header.initialize();
+    header.numClasses = L.classes.length;
+    header.numMemVars = L.memvars.length;
+    header.numObjects = L.objects.length;
+    header.numRefs = L.pointers.length;
+    header.classesOffset = classesOffset;
+    header.memvarsOffset = memvarsOffset;
+    header.stringsOffset = stringsOffset;
+    header.objectsOffset = objectsOffset;
+    header.fileSize = fileSize;
 
-    // Assemble final buffer.
     var result = Buffer.allocUnsafe(fileSize);
-    this.header.write().copy(result, 0);
+    header.write().copy(result, 0);
     classBuf.copy(result, classesOffset);
     memvarBuf.copy(result, memvarsOffset);
     stringBuf.copy(result, stringsOffset);
-    objBuf.copy(result, objectsOffset, 0, cursor);
+    objBuf.copy(result, objectsOffset, 0, objCursor);
 
     return result;
   }
+}
 
-  /**
-   * @param {Buffer} B 
-   * @param {number} offset 
-   * @returns {string}
-   */
-  readDataString(B, offset) {
-    return LoStringPool.read(B, this.header.stringsOffset + offset);
+/**
+ * Read raw object member data using binary memvar information directly.
+ * Used when no proper class definition is available (auto-created classes).
+ */
+function readRawMembers(L, B, off, raw, def, name) {
+  var obj = new LevelValueClass(def, name)
+    , cursor = off;
+
+  for (var [memName, memvar] of raw.raw) {
+    var v, size;
+
+    if (memvar.type === kMemvarTypes.Raw) {
+      size = memvar.size || 4;
+      var rawType = new MetaTypeRaw(def.getName() + "::" + memName, size);
+      v = rawType.read(L, B, cursor);
+    } else if (memvar.type === kMemvarTypes.String) {
+      v = kMetaTypes.CString.read(L, B, cursor);
+      size = v.getSize();
+    } else if (memvar.type === kMemvarTypes.Ref) {
+      v = kMetaTypes.Pointer.read(L, B, cursor);
+      size = 4;
+    } else if (memvar.type === kMemvarTypes.Array) {
+      var count = B.readUInt32LE(cursor);
+      var elemCursor = cursor + 4;
+      var elemType = memvar.aux;
+
+      if (elemType === 0xFFFFFFFF) {
+        var elements = [];
+        for (var ei = 0; ei < count; ei++) {
+          var p = kMetaTypes.Pointer.read(L, B, elemCursor);
+          elements.push(p);
+          elemCursor += 4;
+        }
+        size = 4 + count * 4;
+        v = elements;
+      } else if (elemType >= 0 && elemType < L.classes.length) {
+        var elements = [];
+        var subRaw = L.classes[elemType];
+        var subDef = subRaw.def;
+        for (var ei = 0; ei < count; ei++) {
+          var subResult;
+          if (subDef && subDef.isAutoCreated) {
+            subResult = readRawMembers(L, B, elemCursor, subRaw, subDef, "");
+          } else {
+            var subObj = subDef.read(L, B, elemCursor, subRaw);
+            subResult = { obj: subObj, size: subObj.getSize() };
+          }
+          elements.push(subResult.obj);
+          elemCursor += subResult.size;
+        }
+        size = elemCursor - cursor;
+        v = elements;
+      } else {
+        var elemSize = memvar.size || 4;
+        size = 4 + count * elemSize;
+        var rawArrType = new MetaTypeRaw(def.getName() + "::" + memName, size);
+        v = rawArrType.read(L, B, cursor);
+      }
+    } else {
+      size = memvar.size || 4;
+      var rawType2 = new MetaTypeRaw(def.getName() + "::" + memName, size);
+      v = rawType2.read(L, B, cursor);
+    }
+
+    if (!v)
+      throw kObjectExceptions.ReadObjectFailed.from();
+
+    if (memvar.type === kMemvarTypes.Ref)
+      L.pointers.push(v);
+    else if (memvar.type === kMemvarTypes.Array && memvar.aux === 0xFFFFFFFF)
+      L.pointers.push.apply(L.pointers, v);
+
+    obj.setValue(memName, v);
+    cursor += size;
   }
+
+  obj.finalize();
+  return { obj: obj, size: cursor - off };
 }
 
 module.exports = {

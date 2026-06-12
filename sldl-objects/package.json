@@ -1,6 +1,6 @@
 {
   "name": "sldl-objects",
-  "version": "1.1.2",
+  "version": "2.0.0",
   "main": "main.js",
   "files": [
     "src",
@@ -13,13 +13,13 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "buffer": "^6.0.3",
     "long": "^5.3.2",
     "sldl-utils": "^1.0.0"
   },
   "author": "That Sky Project",
   "license": "LGPL-3.0-or-later",
   "description": "Fully-typed .level.bin reader and writer of Sky:CotL.",
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/that-sky-project/that-sky-compiler.git"

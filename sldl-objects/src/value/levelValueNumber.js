@@ -1,4 +1,4 @@
-const { LevelValue } = require("./levelValue.js");
+var { LevelValue } = require("./levelValue.js");
 
 class LevelValueBool extends LevelValue {
   constructor(def) {

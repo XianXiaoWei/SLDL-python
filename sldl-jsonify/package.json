@@ -1,8 +1,9 @@
 {
   "name": "sldl-jsonify",
-  "version": "1.0.0-beta.1",
-  "description": "A Sky:CotL level editor with json.",
+  "version": "2.0.0",
+  "description": "JSON and Itanium frontend for sldl-objects - Sky:CotL level editor.",
   "main": "main.js",
+  "types": "./main.d.ts",
   "files": [
     "src",
     "main.js",
@@ -25,7 +26,7 @@
   },
   "homepage": "https://github.com/that-sky-project/that-sky-compiler#readme",
   "dependencies": {
-    "sldl-objects": "^1.1.0",
+    "sldl-objects": "^2.0.0",
     "sldl-utils": "^1.0.0"
   }
 }
