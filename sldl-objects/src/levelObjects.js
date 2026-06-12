@@ -220,6 +220,11 @@ class LoIndices {
 
   getClassIdx(name) {
     var idx = this.classIndices.get(name);
+    if (typeof idx === "undefined") {
+      // Clump<T> variants share the "Clump" binary class.
+      if (name.startsWith("Clump<"))
+        idx = this.classIndices.get("Clump");
+    }
     if (typeof idx === "undefined")
       return -1;
     return idx;
@@ -267,13 +272,15 @@ class LoIndices {
 
   addClassFromDef(def, usedMembers) {
     var name = def.getName();
+    // Clump<T> variants share the "Clump" binary class.
+    var binName = name.startsWith("Clump<") ? "Clump" : name;
 
-    if (this.classIndices.has(name))
-      return this.classes[this.classIndices.get(name)];
+    if (this.classIndices.has(binName))
+      return this.classes[this.classIndices.get(binName)];
 
-    this.classIndices.set(name, this.classes.length);
+    this.classIndices.set(binName, this.classes.length);
 
-    var c = new LoClass(name);
+    var c = new LoClass(binName);
     this.classes.push(c);
 
     var MetaTypeClassMemberArray = require("./type/metaTypeClass.js").MetaTypeClassMemberArray;
@@ -295,7 +302,9 @@ class LoIndices {
         type = kMemvarTypes.Array;
         if (member.def instanceof MetaTypeClass) {
           size = 0;
-          aux = this.classIndices.get(member.def.getName());
+          var mdn = member.def.getName();
+          var mdbn = mdn.startsWith("Clump<") ? "Clump" : mdn;
+          aux = this.classIndices.get(mdbn);
         } else if (member.valueType() == kMetaValueType.Pointer) {
           size = member.getSize ? member.getSize() : 4;
           aux = 0xFFFFFFFF;
@@ -539,8 +548,25 @@ class LevelObjects {
 
     var um = usedMembers || this.usedMembers;
 
-    // Register classes with pruning.
+    // Reset indices and rebuild from meta types with pruning.
+    L.clear();
+    var defs = [];
+    for (var [dname, d] of L.metaTypes)
+      defs.push(d);
+    L.define(defs);
+
+    // Collect which classes are directly used by objects.
+    var usedClassNames = new Set();
+    for (var [name, obj] of this.objects)
+      usedClassNames.add(obj.getDef().getName());
+
+    // Register classes with pruning — only directly-used classes.
     for (var [className, classDef] of L.metaClasses) {
+      // Only register classes that objects directly instantiate.
+      // Parent classes (e.g. Event for OnLevelStart) are NOT
+      // registered; their members are inherited via allMembers().
+      if (!usedClassNames.has(className))
+        continue;
       var memberSet = um.get(className);
       L.addClassFromDef(classDef, memberSet);
     }

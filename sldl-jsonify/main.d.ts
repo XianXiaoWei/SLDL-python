@@ -130,23 +130,30 @@ export namespace jsonValue {
 
 export class JsonLevelObjects {
   /**
-   * @param declGroup - JSON declaration group, or itanium string if
-   *   isItanium is true.
+   * @param declGroup - JSON declaration group object, a pre-parsed
+   *   DeclarationGroup instance, or an itanium string if isItanium is true.
    * @param isItanium - treat declGroup as an itanium mangled string.
    */
-  constructor(declGroup: Record<string, any> | string, isItanium?: boolean);
+  constructor(
+    declGroup: Record<string, any> | DeclarationGroup | string,
+    isItanium?: boolean
+  );
 
   /**
-   * Read a TGCL binary buffer and return JSON objects with their
-   * declaration group.
+   * Read a TGCL binary buffer. Unknown types are auto-added to the
+   * stored declaration group. Returns JSON objects with "O$name" keys.
    */
-  read(buffer: Buffer): {
-    objects: Record<string, any>;
-    declGroup: Record<string, any>;
-  };
+  read(buffer: Buffer): Record<string, any>;
 
   /**
    * Write JSON objects (with "O$name" keys) to a TGCL binary buffer.
    */
   write(objects: Record<string, any>): Buffer;
+
+  /**
+   * Get the current declaration group.
+   * @param asJSON - if true, return a plain JSON object with C$/S$/A$
+   *   keys. Otherwise returns the DeclarationGroup instance.
+   */
+  getDeclGroup(asJSON?: boolean): DeclarationGroup | Record<string, any>;
 }

@@ -10,8 +10,7 @@ package-lock.json
 BstBaked.meshes
 *.level.bin
 *.level.json
-*.level.yaml
-*.level.yml
+*.decl.json
 
 *.tgz
 *.zip
