@@ -13,6 +13,13 @@
     "k": "float",
     "w": "float"
   },
+  "S$Color": {
+    "$align": 16,
+    "r": "float",
+    "g": "float",
+    "b": "float",
+    "a": "float"
+  },
   "S$Matrix4": {
     "$align": 16,
     "row1": "Vector4",
@@ -45,5 +52,15 @@
     "breakHandHold": "bool",
     "bstGuid": "uint32_t",
     "killMomentum": "bool"
+  },
+  "C$Rail": {
+    "enabled": "bool",
+    "looped": "bool",
+    "selfUpdating": "bool",
+    "generateRibbon": "bool",
+    "ribbonOffset": "Vector4",
+    "transform": "Matrix4",
+    "color": "Color",
+    "dataPoints": "Marker *[]"
   }
 }
