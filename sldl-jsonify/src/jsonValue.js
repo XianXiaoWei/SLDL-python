@@ -17,12 +17,11 @@ function parse(jsonValue, member, declGroup) {
     if (!Array.isArray(jsonValue))
       jsonValue = jsonValue === void 0 || jsonValue === null ? [] : [jsonValue];
 
-    var elemDef = member.def;
+    // All elements share one element-type member wrapper.
+    var elemMember = new MetaTypeClassMember(member.def, member.name);
     var result = [];
-    for (var i = 0; i < jsonValue.length; i++) {
-      result.push(parse(jsonValue[i],
-        new MetaTypeClassMember(elemDef, member.name), declGroup));
-    }
+    for (var i = 0; i < jsonValue.length; i++)
+      result.push(parse(jsonValue[i], elemMember, declGroup));
     return result;
   }
 

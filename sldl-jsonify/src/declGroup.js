@@ -1,7 +1,7 @@
 var { kMetaTypes, getClumpGeneric, clumpGenericCache } = require("sldl-objects");
 var { MetaType, MetaTypeForward, kMetaValueType, MetaTypeClass,
   MetaTypeClassMember, MetaTypeClassMemberArray, MetaTypeStruct,
-  MetaTypeRaw, MetaTypePointer } = require("sldl-objects");
+  MetaTypeRaw, MetaTypePointer, MetaTypeClump } = require("sldl-objects");
 var { kItaniumException } = require("./exception.js");
 
 /**
@@ -374,7 +374,6 @@ class DeclarationGroup {
 
     if (hasPointer) {
       // Reference types — accept MetaTypeClass and MetaTypeClump.
-      var { MetaTypeClump } = require("sldl-objects");
       if (!(resolvedType instanceof MetaTypeClass)
         && !(resolvedType instanceof MetaTypeClump))
         throw kItaniumException.InvalidMemberSyntax.from(expr);

@@ -1,6 +1,28 @@
 const { kMetaTypes, kMetaValueType, MetaTypeStruct, MetaTypeClass, MetaTypePointer } = require("sldl-objects");
 const { kItaniumException } = require("./exception.js");
 
+/**
+ * Add a resolved member to a class, validating pointer targets and
+ * wrapping pointer references in a typed MetaTypePointer.
+ * @param {MetaTypeClass} clazz
+ * @param {MetaType} type - the resolved base type
+ * @param {string} name - member name
+ * @param {number} count - -1 = scalar, 0 = dynamic array, >0 = fixed array
+ * @param {boolean} isPointer
+ */
+function addResolvedMember(clazz, type, name, count, isPointer) {
+  var base = type;
+
+  if (isPointer) {
+    // Only class types may be pointed to.
+    if (type.valueType() !== kMetaValueType.Class)
+      throw kItaniumException.InvalidPointer.from(type.getName());
+    base = new MetaTypePointer(type.getName() + " *", type);
+  }
+
+  clazz.addMember(base, name, count === -1 ? void 0 : count);
+}
+
 class StringReader {
   constructor(s) {
     this.string = s;
@@ -119,14 +141,7 @@ class ItaniumResolver {
     var typename = name || type.getName()
       , refs = this.pending.get(typename);
     refs && refs.forEach(function (t) {
-      var base = type;
-      // No struct pointer or struct pointer array.
-      if (base.valueType() != kMetaValueType.Class && t.isPointer)
-        throw kItaniumException.InvalidPointer.from(base.getName());
-      if (t.isPointer)
-        // TODO: Add type verification for the pointer.
-        base = kMetaTypes.Pointer;
-      t.clazz.addMember(base, t.name, t.count == -1 ? void 0 : t.count);
+      addResolvedMember(t.clazz, type, t.name, t.count, t.isPointer);
     });
     this.pending.delete(typename);
   }
@@ -252,16 +267,8 @@ class ItaniumResolver {
     }
 
     if (type) {
-      // Don't add member if needs backpatch.
-      if (type.valueType() != kMetaValueType.Class && isPointer)
-        // No struct pointer or struct pointer array.
-        throw kItaniumException.InvalidPointer.from(type.getName());
-
-      if (isPointer)
-        // TODO: Add type verification for the pointer.
-        type = kMetaTypes.Pointer;
-
-      clazz.addMember(type, name, count == -1 ? void 0 : count);
+      // Skip members that still need backpatching.
+      addResolvedMember(clazz, type, name, count, isPointer);
     }
   }
 

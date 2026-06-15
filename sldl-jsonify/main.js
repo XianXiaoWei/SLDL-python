@@ -38,42 +38,12 @@ class JsonLevelObjects {
       defs = resolved;
       this.declGroup = null;
       this.isItanium = true;
-    } else if (declGroup instanceof DeclarationGroup) {
-      // Shallow-copy the pre-parsed DeclarationGroup.
-      var dg = new DeclarationGroup({});
-      for (var [name, type] of declGroup.types)
-        dg.types.set(name, type);
-      for (var [name, cls] of declGroup.classes)
-        dg.classes.set(name, cls);
-      for (var [name, val] of declGroup.enumConstants)
-        dg.enumConstants.set(name, val);
-      for (var [name, info] of declGroup.enumInfo)
-        dg.enumInfo.set(name, info);
-      if (declGroup.aliasMap) {
-        dg.aliasMap = {};
-        for (var ak of Object.keys(declGroup.aliasMap))
-          dg.aliasMap[ak] = declGroup.aliasMap[ak];
-      }
-      dg.raw = declGroup.raw;
-
-      defs = [];
-      for (var [name, type] of dg.types)
-        defs.push(type);
-      for (var key of Object.keys(kMetaTypes))
-        if (!dg.types.has(key))
-          defs.push(kMetaTypes[key]);
-
-      this.declGroup = dg;
-      this.isItanium = false;
     } else {
-      var dg = new DeclarationGroup(declGroup).parse();
-      defs = [];
-      for (var [name, type] of dg.types)
-        defs.push(type);
-      for (var key of Object.keys(kMetaTypes))
-        if (!dg.types.has(key))
-          defs.push(kMetaTypes[key]);
-
+      // Use a private copy of a pre-parsed group, or parse a raw JSON group.
+      var dg = declGroup instanceof DeclarationGroup
+        ? cloneDeclGroup(declGroup)
+        : new DeclarationGroup(declGroup).parse();
+      defs = buildDefs(dg);
       this.declGroup = dg;
       this.isItanium = false;
     }
@@ -165,21 +135,22 @@ class JsonLevelObjects {
         // Exclude built-in types and Clump<T> generics.
         if (isBuiltin(name) || type instanceof MetaTypeClump)
           continue;
-        var tn = type.getName();
+        var tn = type.getName()
+          , vt = type.valueType();
 
-        if (type.valueType() === 4 /* Class */) {
+        if (vt === kMetaValueType.Class) {
           var classObj = {};
           if (type.parent && type.parent.getName() !== "Object")
             classObj.$parent = type.parent.getName();
           for (var [mn, m] of type.members)
             classObj[mn] = memberToString(m);
           result["C$" + name] = classObj;
-        } else if (type.valueType() === 3 /* Struct */) {
+        } else if (vt === kMetaValueType.Struct) {
           var structObj = {};
           for (var [mn, m] of type.members)
             structObj[mn] = memberToString(m);
           result["S$" + name] = structObj;
-        } else if (type.valueType() === 1 /* Number */ || type.valueType() === 3) {
+        } else if (vt === kMetaValueType.Number) {
           result["A$" + name] = tn;
         }
       }
@@ -216,6 +187,47 @@ class JsonLevelObjects {
 
     return dg;
   }
+}
+
+/**
+ * Build the MetaType[] definitions list for LevelObjects from a declaration
+ * group: every declared type, plus any built-in type it does not override.
+ * @param {DeclarationGroup} dg
+ * @returns {Array}
+ */
+function buildDefs(dg) {
+  var defs = [];
+  for (var type of dg.types.values())
+    defs.push(type);
+  for (var key of Object.keys(kMetaTypes))
+    if (!dg.types.has(key))
+      defs.push(kMetaTypes[key]);
+  return defs;
+}
+
+/**
+ * Shallow-copy a pre-parsed DeclarationGroup into a fresh instance, so the
+ * caller's group is not mutated by subsequent reads/writes.
+ * @param {DeclarationGroup} src
+ * @returns {DeclarationGroup}
+ */
+function cloneDeclGroup(src) {
+  var dg = new DeclarationGroup({});
+  for (var [name, type] of src.types)
+    dg.types.set(name, type);
+  for (var [name, cls] of src.classes)
+    dg.classes.set(name, cls);
+  for (var [name, val] of src.enumConstants)
+    dg.enumConstants.set(name, val);
+  for (var [name, info] of src.enumInfo)
+    dg.enumInfo.set(name, info);
+  if (src.aliasMap) {
+    dg.aliasMap = {};
+    for (var ak of Object.keys(src.aliasMap))
+      dg.aliasMap[ak] = src.aliasMap[ak];
+  }
+  dg.raw = src.raw;
+  return dg;
 }
 
 /**
