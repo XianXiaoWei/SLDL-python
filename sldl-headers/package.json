@@ -1,6 +1,6 @@
 {
   "name": "sldl-headers",
-  "version": "0.33.7-beta.20260614+394009",
+  "version": "0.33.7+394009",
   "description": "A standard declaration library for SLDL (libstdsky).",
   "main": "main.js",
   "files": [
@@ -14,15 +14,12 @@
   "devDependencies": {
     "sldl-jsonify": "^1.0.0"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/that-sky-project/that-sky-compiler.git"
   },
   "author": "That Sky Project",
-  "license": "LGPL-3.0-or-later",
+  "license": "CC0-1.0",
   "bugs": {
     "url": "https://github.com/that-sky-project/that-sky-compiler/issues"
   },

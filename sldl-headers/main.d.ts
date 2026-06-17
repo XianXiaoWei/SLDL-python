@@ -2,4 +2,4 @@
 export const kEngineVersion: number[];
 
 /** Resolve with sldl-jsonify. */
-export const kLibStdSkyDecl: string;
+export const kLibStdSkyDecl: Record<string, object>;
