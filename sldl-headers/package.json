@@ -14,6 +14,9 @@
   "devDependencies": {
     "sldl-jsonify": "^1.0.0"
   },
+  "scripts": {
+    "build": "echo \"no build tool specified.\""
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/that-sky-project/that-sky-compiler.git"

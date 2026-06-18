@@ -4,7 +4,7 @@
   "description": "The CLI interface of SLDL compiler.",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "echo \"no build tool specified.\""
   },
   "repository": {
     "type": "git",

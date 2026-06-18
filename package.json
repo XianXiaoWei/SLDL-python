@@ -11,5 +11,8 @@
     "sldl-jsonify",
     "examples",
     "that-sky-compiler"
-  ]
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces"
+  }
 }

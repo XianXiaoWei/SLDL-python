@@ -7,8 +7,7 @@ module.exports = {
   mode: "production",
   entry: "./main.js",
   output: {
-    clean: true,
-    filename: "sldl-utils.min.js",
+    filename: "sldl-jsonify.min.js",
     path: path.resolve(__dirname, "dist"),
     libraryTarget: "umd",
     library: "SLDL",
@@ -17,8 +16,12 @@ module.exports = {
   optimization: {
     minimize: true,
     minimizer: [new TerserPlugin({
-      extractComments: false
+      extractComments: false,
     })]
+  },
+  externals: {
+    "sldl-utils": "SLDL",
+    "sldl-objects": "SLDL"
   },
   plugins: [
     new webpack.BannerPlugin({

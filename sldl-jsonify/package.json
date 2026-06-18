@@ -5,6 +5,7 @@
   "main": "main.js",
   "types": "./main.d.ts",
   "files": [
+    "dist",
     "src",
     "main.js",
     "main.d.ts",
@@ -13,7 +14,7 @@
     "package.json"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npx -w . webpack"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,12 @@
   "homepage": "https://github.com/that-sky-project/that-sky-compiler#readme",
   "dependencies": {
     "sldl-objects": "^1.2.0",
-    "sldl-utils": "^1.1.0"
+    "sldl-utils": "^1.1.0",
+    "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "terser-webpack-plugin": "^5.6.1",
+    "webpack": "^5.107.2",
+    "webpack-cli": "^7.0.3"
   }
 }
