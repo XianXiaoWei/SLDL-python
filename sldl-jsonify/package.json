@@ -1,6 +1,6 @@
 {
   "name": "sldl-jsonify",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "JSON and Itanium frontend for sldl-objects.",
   "main": "main.js",
   "types": "./main.d.ts",
