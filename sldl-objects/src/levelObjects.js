@@ -551,6 +551,38 @@ class LevelObjects {
    * @returns {Uint8Array}
    */
   writeBinary(usedMembers) {
+    function recursiveObjects(obj) {
+      for (var [mname, mval] of obj.value) {
+        var memb = obj.getDef().getMember(mname);
+        if (!memb)
+          continue;
+
+        if (memb.valueType() === kMetaValueType.Class) {
+          var childs = Array.isArray(mval) ? mval : [mval];
+          for (var c of childs)
+            recursiveObjects(c);
+          continue;
+        }
+
+        if (memb.valueType() !== kMetaValueType.Pointer)
+          continue;
+
+        var ptrs = Array.isArray(mval) ? mval : [mval];
+        for (var pi = 0; pi < ptrs.length; pi++) {
+          var p = ptrs[pi];
+          if (!(p instanceof LevelValuePointer))
+            continue;
+          if (p.targetName !== null && p.targetName !== void 0) {
+            var targetIdx = L.objectIndices.get(p.targetName);
+            if (targetIdx === void 0)
+              throw kObjectExceptions.UnresolvedObjectReference.from(p.targetName);
+            p.setIndex(targetIdx);
+          }
+          L.pointers.push(p);
+        }
+      }
+    }
+
     var L = this.indices;
     var strings = new LoStringPool();
 
@@ -580,27 +612,8 @@ class LevelObjects {
       L.addObject(obj);
 
     // Collect and resolve pointers (separate pass for forward refs).
-    for (var [name, obj] of this.objects) {
-      for (var [mname, mval] of obj.value) {
-        var memb = obj.getDef().getMember(mname);
-        if (!memb || memb.valueType() !== kMetaValueType.Pointer)
-          continue;
-
-        var ptrs = Array.isArray(mval) ? mval : [mval];
-        for (var pi = 0; pi < ptrs.length; pi++) {
-          var p = ptrs[pi];
-          if (!(p instanceof LevelValuePointer))
-            continue;
-          if (p.targetName !== null && p.targetName !== void 0) {
-            var targetIdx = L.objectIndices.get(p.targetName);
-            if (targetIdx === void 0)
-              throw kObjectExceptions.UnresolvedObjectReference.from(p.targetName);
-            p.setIndex(targetIdx);
-          }
-          L.pointers.push(p);
-        }
-      }
-    }
+    for (var [name, obj] of this.objects)
+      recursiveObjects(obj);
 
     // Write sections.
     var memvarBuf = Buffer.allocUnsafe(L.memvars.length * 16);
