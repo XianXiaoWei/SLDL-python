@@ -515,36 +515,42 @@ class LevelObjects:
 
         string_buf = strings.write()
 
-        total_obj_size = 0
-        for o in L.objects:
-            total_obj_size += 4 + len(o.get_name().encode("utf-8")) + 1 + o.get_size()
-
-        obj_buf = bytearray(total_obj_size)
-        obj_cursor = 0
+        # Build objects section dynamically to avoid buffer overflow when
+        # actual write size exceeds get_size() (e.g. missing members get
+        # default values written that weren't counted in finalize()).
+        obj_buf = bytearray()
         for o in L.objects:
             c_idx = L.get_class_idx(o.get_def().get_name())
             if c_idx == -1:
                 raise kObjectExceptions["InvalidClassName"].build(o.get_def().get_name())
 
-            bio.write_u32(obj_buf, c_idx, obj_cursor)
-            obj_cursor += 4
+            obj_buf.extend(bio.alloc(4))
+            bio.write_u32(obj_buf, c_idx, len(obj_buf) - 4)
 
             name_buf = (o.get_name() + "\0").encode("utf-8")
-            obj_buf[obj_cursor:obj_cursor + len(name_buf)] = name_buf
-            obj_cursor += len(name_buf)
+            obj_buf.extend(name_buf)
 
             raw2 = L.classes[c_idx]
-            n = o.get_def().write(L, obj_buf, o, obj_cursor, raw2)
-            if not n:
-                raise kObjectExceptions["ReadObjectFailed"].build()
-            obj_cursor += n
+            # Write data into a temp buffer large enough to hold the object.
+            # Start with 2x estimate + 1MB margin, grow if needed.
+            temp_size = max(o.get_size() * 2 + 65536, 1024 * 1024)
+            while True:
+                temp_buf = bytearray(temp_size)
+                n = o.get_def().write(L, temp_buf, o, 0, raw2)
+                if n:
+                    obj_buf.extend(temp_buf[:n])
+                    break
+                # write returned 0, likely buffer too small; double and retry
+                temp_size *= 2
+                if temp_size > 256 * 1024 * 1024:  # 256MB hard cap
+                    raise kObjectExceptions["ReadObjectFailed"].build()
 
         header_size = 44
         classes_offset = header_size
         memvars_offset = classes_offset + len(class_buf)
         strings_offset = memvars_offset + len(memvar_buf)
         objects_offset = strings_offset + len(string_buf)
-        file_size = objects_offset + obj_cursor
+        file_size = objects_offset + len(obj_buf)
 
         header = LoHeader()
         header.num_classes = len(L.classes)
@@ -563,7 +569,7 @@ class LevelObjects:
         result[classes_offset:classes_offset + len(class_buf)] = class_buf
         result[memvars_offset:memvars_offset + len(memvar_buf)] = memvar_buf
         result[strings_offset:strings_offset + len(string_buf)] = string_buf
-        result[objects_offset:objects_offset + obj_cursor] = obj_buf[:obj_cursor]
+        result[objects_offset:objects_offset + len(obj_buf)] = obj_buf
 
         return bytes(result)
 
