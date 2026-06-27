@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "that-sky-compiler"
+version = "1.0.0"
+description = "A Python compiler for Sky Level Description Language (SLDL) - reads/writes TGCL .level.bin files."
+readme = "README.md"
+license = {text = "LGPL-3.0-or-later"}
+authors = [
+    {name = "That Sky Project (Python port)"}
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+that-sky-compiler = "that_sky_compiler.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["that_sky_compiler*"]
